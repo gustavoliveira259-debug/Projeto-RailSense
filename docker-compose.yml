@@ -1,0 +1,41 @@
+services:
+
+    postgres:
+        image: postgres:16
+        container_name: monitoramneto-db
+        restart: always
+        environment:
+            POSTGRES_DB:
+            POSTGRES_USER:
+            POSTGRES_PASSWORD:
+        ports:
+            - "5432:5432"
+        Volumes:
+            - postgres_data:/var/lib/postgresql/data
+    
+    backend:
+        build:
+            context: ./backend
+        container_name: monitoramento-backend
+        restart: always
+        depends_on:
+            - postgres
+        environment:
+            SPRING_DATASOURCE_URL:
+            SPRING_DATASOURCE_USERNAME:
+            SPRING_DATASOURCE_PASSWORD:
+            GEMINI_API_KEY:
+        ports:
+            - "8080:8080"
+    
+    frontend:
+        build:
+            context: ./frontend
+        container_name: monitoramento-frontend
+        restart: always
+        depends_on:
+            - backend
+        ports: "3000:80"
+
+volumes:
+    postgres_data
