@@ -5,9 +5,9 @@ services:
         container_name: monitoramneto-db
         restart: always
         environment:
-            POSTGRES_DB:
-            POSTGRES_USER:
-            POSTGRES_PASSWORD:
+            POSTGRES_DB: ${POSTGRES_DB}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
         ports:
             - "5432:5432"
         Volumes:
@@ -21,10 +21,11 @@ services:
         depends_on:
             - postgres
         environment:
-            SPRING_DATASOURCE_URL:
-            SPRING_DATASOURCE_USERNAME:
-            SPRING_DATASOURCE_PASSWORD:
-            GEMINI_API_KEY:
+            SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+            SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+            SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+            GEMINI_API_KEY: ${GEMINI_API_KEY}
+            CLAUDINARY_URL: ${CLAUDINARY_URL}
         ports:
             - "8080:8080"
     
