@@ -1,4 +1,4 @@
-package main.enums;
+package main.java.br.com.railsense_backend.enums;
 
 public enum StatusOrdem {
     ABERTA,
