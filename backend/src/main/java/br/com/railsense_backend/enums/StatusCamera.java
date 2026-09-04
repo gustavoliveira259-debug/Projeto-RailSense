@@ -1,4 +1,4 @@
-package main.enums;
+package br.com.railsense_backend.enums;
 
 public enum StatusCamera {
     ATIVA,
