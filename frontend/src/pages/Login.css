@@ -1,0 +1,300 @@
+/*
+  Variáveis visuais locais da tela de login.
+  Nenhuma dessas informações é segredo; são apenas cores da interface.
+*/
+:root {
+  --navy: #071d4d;
+  --text: #16233a;
+  --muted: #8a9098;
+  --border: #d8dde2;
+  --danger: #a43f39;
+}
+
+/* Remove diferenças padrão do navegador e define a fonte da tela. */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  color: var(--text);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+/*
+  Container da página inteira.
+  position: relative permite colocar a imagem decorativa atrás do cartão.
+*/
+.login-page {
+  position: relative;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 32px 16px;
+  background: #f5f7f8;
+}
+
+/*
+  A imagem não é conteúdo funcional: serve apenas como fundo visual.
+  A opacidade baixa mantém o texto e os campos legíveis.
+*/
+.background-decoration {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: grayscale(100%);
+  opacity: 0.80;
+}
+
+/*
+  Camada clara por cima da imagem.
+  pointer-events: none impede que a decoração bloqueie cliques no formulário.
+*/
+.login-page::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: rgba(248, 250, 251, 0.76);
+}
+
+/* Cartão branco centralizado, inspirado na imagem de referência. */
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 590px);
+  padding: 42px 50px 34px;
+  border: 1px solid rgba(224, 229, 231, 0.9);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 18px 48px rgba(28, 43, 54, 0.14);
+}
+
+/* Logo gerada e armazenada em src/assets/Logo.png. */
+.login-logo {
+  display: block;
+  width: 128px;
+  height: 128px;
+  object-fit: contain;
+  margin: 0 auto 18px;
+}
+
+.login-card h1 {
+  max-width: 480px;
+  margin: 0 auto;
+  color: #091b3d;
+  font-size: clamp(28px, 4vw, 38px);
+  line-height: 1.12;
+  text-align: center;
+  letter-spacing: -0.045em;
+}
+
+.login-subtitle {
+  margin: 14px 0 30px;
+  color: var(--muted);
+  font-size: 16px;
+  text-align: center;
+}
+
+/* Formulário com espaçamento consistente entre os campos. */
+form {
+  display: grid;
+  gap: 20px;
+}
+
+.field-group {
+  display: grid;
+  gap: 8px;
+}
+
+.field-group label {
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Agrupa o ícone e o input, sem alterar o valor digitado pelo usuário. */
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+/* Indica visualmente qual campo está ativo. */
+.input-wrapper:focus-within {
+  border-color: #18386e;
+  box-shadow: 0 0 0 3px rgba(24, 56, 110, 0.12);
+}
+
+.input-icon,
+.eye-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: #aeb4ba;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.input-icon {
+  margin-left: 16px;
+}
+
+.input-wrapper input {
+  min-width: 0;
+  flex: 1;
+  padding: 16px 12px;
+  border: 0;
+  outline: 0;
+  color: #192333;
+  background: transparent;
+  font-size: 15px;
+}
+
+.input-wrapper input::placeholder {
+  color: #b0b5bb;
+}
+
+/*
+  Botão de mostrar senha.
+  type="button" evita que ele envie o formulário acidentalmente.
+*/
+.password-toggle {
+  display: grid;
+  place-items: center;
+  margin-right: 12px;
+  padding: 5px;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+}
+
+/* Opções auxiliares abaixo dos campos. */
+.form-options {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #626b76;
+  font-size: 14px;
+}
+
+.remember-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.remember-option input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--navy);
+}
+
+.forgot-password {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: #2a5795;
+  background: transparent;
+  font-size: 14px;
+}
+
+.forgot-password:hover {
+  text-decoration: underline;
+}
+
+.form-error {
+  margin: -4px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+/* Botão principal do login. */
+.submit-button {
+  min-height: 58px;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #fff;
+  background: var(--navy);
+  font-size: 17px;
+  font-weight: 800;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.submit-button:hover:not(:disabled) {
+  background: #0b2b67;
+}
+
+.submit-button:active:not(:disabled) {
+  transform: scale(0.985);
+}
+
+.submit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/*
+  Foco visível para navegação por teclado.
+  Isso melhora acessibilidade e evita que o usuário perca a posição na tela.
+*/
+.password-toggle:focus-visible,
+.forgot-password:focus-visible,
+.submit-button:focus-visible,
+.remember-option input:focus-visible {
+  outline: 3px solid rgba(24, 56, 110, 0.3);
+  outline-offset: 2px;
+}
+
+.security-note {
+  margin: 22px 0 0;
+  color: #9aa0a6;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Ajuste para telas pequenas, como celulares. */
+@media (max-width: 560px) {
+  .login-page {
+    padding: 20px 12px;
+  }
+
+  .login-card {
+    padding: 30px 22px 26px;
+  }
+
+  .login-logo {
+    width: 96px;
+    height: 96px;
+  }
+
+  .login-card h1 {
+    font-size: 28px;
+  }
+
+  .form-options {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
