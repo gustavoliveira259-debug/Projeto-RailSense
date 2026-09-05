@@ -1,48 +1,76 @@
 #include <WiFi.h>
+#include <PubSubClient.h>
 
 #define ssid "Wokwi-GUEST"
 #define password ""
 
 #define pot 14
 
+WiFiClient espClient;
+PubSubClient client(espClient);
 
-void initWiFi() {
-  WiFi.mode(WIFI_STA);
+const char* mqtt_server = "SEU_BROKER";
+const int mqtt_port = 1883;
+
+void setup_wifi() {
+  delay(10);
+
+  Serial.println("Conectando ao Wi-Fi...");
+
   WiFi.begin(ssid, password);
-  // WiFi.begin("Wokwi-GUEST", "");
-  Serial.print("Connecting to WiFi ..");
+
   while (WiFi.status() != WL_CONNECTED) {
-    Serial.println(WiFi.status());
-    Serial.print('.');
-    delay(1000);
+    delay(500);
+    Serial.print(".");
   }
-  Serial.println("Connected");
-  Serial.println(WiFi.status());
+
+  Serial.println();
+  Serial.println("Wi-Fi conectado!");
   Serial.println(WiFi.localIP());
-  Serial.print("RRSI: ");
-  Serial.println(WiFi.RSSI());
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Conectando ao MQTT...");
+
+    if (client.connect("ESP32-Wokwi")) {
+      Serial.println(" conectado!");
+    } else {
+      Serial.print(" falhou, estado=");
+      Serial.println(client.state());
+      delay(5000);
+    }
+  }
 }
 
 void setup() {
   Serial.begin(115200);
-  initWiFi();
+
+  setup_wifi();
+
+  client.setServer(mqtt_server, mqtt_port);
 }
 
 void loop() {
-  int valor = analogRead(pot);
-  
-  if (valor < 1500) {
-  Serial.println("Vibração normal");
-}
-else if (valor < 2500) {
-  Serial.println("Vibração anormal");
-}
-else {
-  Serial.println("Vibração critica");
-}
 
-  Serial.print("Vibração: ");
-  Serial.println(valor);
+  if (!client.connected()) {
+    reconnect();
+  }
+
+  client.loop();
+
+  int valor = analogRead(pot);
+
+  char mensagem[10];
+  sprintf(mensagem, "%d", valor);
+
+  client.publish(
+    "railsense/sensor/vibracao",
+    mensagem
+  );
+
+  Serial.print("Enviado: ");
+  Serial.println(mensagem);
 
   delay(1000);
 }
