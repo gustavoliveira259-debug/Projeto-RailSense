@@ -1,14 +1,15 @@
-import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
 
 /**
  * Componente raiz da aplicação.
  *
- * Por enquanto, o RailSense possui apenas a tela de entrada.
- * A navegação para o dashboard será adicionada depois que a autenticação
- * for conectada ao backend.
+ * Nesta etapa, o Dashboard é exibido diretamente para facilitar a construção
+ * visual da segunda tela. A autenticação real deverá decidir esta tela depois,
+ * usando a sessão criada pelo backend, e não uma condição controlada pelo
+ * usuário no navegador.
  */
 function App() {
-  return <Login />
+  return <Dashboard />
 }
 
 export default App
