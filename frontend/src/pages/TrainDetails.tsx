@@ -1,4 +1,5 @@
-import type { Train } from '../types/train'
+import { useMemo, useState } from 'react'
+import type { Train, TrainStatus } from '../types/train'
 import { demoTrainDetails, type TrainDetails as TrainDetailsData } from '../types/trainDetails'
 import './TrainDetails.css'
 
@@ -17,6 +18,15 @@ function StatusIcon() {
   return <span className="details-status-dot" aria-hidden="true" />
 }
 
+function CameraIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="camera-icon">
+      <path d="M4 7h3l1.4-2h7.2L17 7h3a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  )
+}
+
 /**
  * Tela exibida depois que o usuário escolhe um trem.
  *
@@ -26,6 +36,8 @@ function StatusIcon() {
  */
 export default function TrainDetails({ train, onBack }: TrainDetailsProps) {
   const details = demoTrainDetails[train.id]
+  const [wagonFilter, setWagonFilter] = useState<TrainStatus | 'all'>('all')
+  const [selectedWagonId, setSelectedWagonId] = useState<string | null>(null)
 
   if (!details) {
     return (
@@ -36,6 +48,12 @@ export default function TrainDetails({ train, onBack }: TrainDetailsProps) {
       </main>
     )
   }
+
+  const visibleWagons = useMemo(
+    () => details.wagons.filter((wagon) => wagonFilter === 'all' || wagon.status === wagonFilter),
+    [details.wagons, wagonFilter],
+  )
+  const selectedWagon = details.wagons.find((wagon) => wagon.id === selectedWagonId) ?? visibleWagons[0] ?? details.wagons[0]
 
   return (
     <main className="details-page">
@@ -83,33 +101,66 @@ export default function TrainDetails({ train, onBack }: TrainDetailsProps) {
           </article>
         </section>
 
-        <section className="details-panel">
+        <section className="details-panel" aria-labelledby="wagons-title">
           <div className="details-panel-heading">
             <div>
-              <p className="eyebrow">Próxima etapa</p>
-              <h2>Vagões da composição</h2>
-              <p>Selecione um vagão para consultar seus rolamentos e sensores.</p>
+              <h2 id="wagons-title">Vagões da composição</h2>
+              <p>Escolha um vagão para consultar seus rolamentos, sensores e a última foto recebida.</p>
             </div>
-            <button className="primary-details-button" type="button">
-              Ver vagões <span aria-hidden="true">→</span>
-            </button>
+            <div className="wagon-select-controls">
+              <label className="wagon-filter">
+                Filtrar por status
+                <select value={wagonFilter} onChange={(event) => setWagonFilter(event.target.value as TrainStatus | 'all')}>
+                  <option value="all">Todos os vagões</option>
+                  <option value="active">Normal</option>
+                  <option value="attention">Atenção</option>
+                  <option value="offline">Offline</option>
+                </select>
+              </label>
+              <label className="wagon-filter">
+                Selecionar vagão
+                <select value={selectedWagon.id} onChange={(event) => setSelectedWagonId(event.target.value)}>
+                  {visibleWagons.map((wagon) => (
+                    <option key={wagon.id} value={wagon.id}>
+                      {wagon.id} — {statusLabel(wagon.status)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
 
-          <div className="wagon-preview-grid" aria-label="Resumo dos vagões">
-            <div className="wagon-preview-card">
-              <span className="wagon-number">VAG-0001</span>
-              <span className="wagon-status normal-status"><i /> Normal</span>
-              <small>8 rolamentos monitorados</small>
+          <p className="wagon-selection-summary">
+            {visibleWagons.length === 1
+              ? '1 vagão disponível para seleção.'
+              : `${visibleWagons.length} vagões disponíveis para seleção.`}
+          </p>
+        </section>
+
+        <section className="wagon-details-panel" aria-labelledby="wagon-details-title">
+          <div className="wagon-details-heading">
+            <div>
+              <p className="eyebrow">Vagão selecionado</p>
+              <h2 id="wagon-details-title">{selectedWagon.id}</h2>
+              <span className={`wagon-status ${selectedWagon.status === 'active' ? 'normal-status' : selectedWagon.status === 'attention' ? 'attention-status' : 'offline-status'}`}><i /> {statusLabel(selectedWagon.status)}</span>
             </div>
-            <div className="wagon-preview-card attention-wagon">
-              <span className="wagon-number">VAG-0002</span>
-              <span className="wagon-status attention-status"><i /> Atenção</span>
-              <small>1 rolamento em análise</small>
+            <span>{selectedWagon.monitoredBearings} rolamentos monitorados</span>
+          </div>
+
+          <div className="wagon-inspection-grid">
+            <div className="bearing-readings">
+              <span>Rolamento em foco</span><strong>{selectedWagon.bearingId}</strong>
+              <div><span>Temperatura</span><strong>{selectedWagon.temperature}</strong></div>
+              <div><span>Vibração</span><strong>{selectedWagon.vibration}</strong></div>
+              <div><span>Alertas ativos</span><strong>{selectedWagon.activeAlerts}</strong></div>
             </div>
-            <div className="wagon-preview-card">
-              <span className="wagon-number">VAG-0003</span>
-              <span className="wagon-status normal-status"><i /> Normal</span>
-              <small>8 rolamentos monitorados</small>
+            <div className="bearing-photo">
+              {selectedWagon.lastImageUrl ? (
+                <img src={selectedWagon.lastImageUrl} alt={`Última foto do rolamento ${selectedWagon.bearingId}`} />
+              ) : (
+                <div className="photo-unavailable"><CameraIcon /><span>Nenhuma foto recebida</span></div>
+              )}
+              <div className="bearing-photo-caption"><strong>Última foto do rolamento</strong><span>{selectedWagon.lastImageAt ?? 'Aguardando envio da câmera'}</span></div>
             </div>
           </div>
         </section>
