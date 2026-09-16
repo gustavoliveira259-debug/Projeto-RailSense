@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import logo from '../assets/Logo.png'
 import backgroundImage from '../assets/fundo-do-login.jpg'
 import './Login.css'
+import { login, type AuthenticatedUser } from '../services/auth'
 
 /**
  * Ícone de envelope usado no campo de e-mail.
@@ -48,12 +49,16 @@ function EyeIcon({ visible }: { visible: boolean }) {
   )
 }
 
-export default function Login() {
+type LoginProps = {
+  onAuthenticated: (user: AuthenticatedUser) => void
+  onRegister: () => void
+}
+
+export default function Login({ onAuthenticated, onRegister }: LoginProps) {
   // Os valores ficam somente no estado temporário do formulário.
   // Não salve senha, token ou sessão no localStorage.
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rememberMe, setRememberMe] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -61,11 +66,10 @@ export default function Login() {
   /**
    * Processa o envio do formulário.
    *
-   * Nesta etapa o backend ainda não está conectado. Por isso, a função
-   * apenas valida os campos e exibe uma mensagem temporária. A senha não é
-   * armazenada nem enviada para um serviço fictício.
+   * A senha é enviada somente por HTTPS para o endpoint de autenticação.
+   * A sessão resultante fica em um cookie HttpOnly, não no localStorage.
    */
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
 
@@ -76,13 +80,17 @@ export default function Login() {
       return
     }
 
-    setIsSubmitting(true)
-
-    // Simulação temporária enquanto o endpoint de login não existe.
-    window.setTimeout(() => {
+    try {
+      setIsSubmitting(true)
+      const user = await login(email.trim(), password)
+      setPassword('')
+      onAuthenticated(user)
+    } catch {
+      // A resposta é deliberadamente genérica para não revelar se um e-mail existe.
+      setError('E-mail ou senha inválidos.')
+    } finally {
       setIsSubmitting(false)
-      setError('A autenticação será conectada ao backend na próxima etapa.')
-    }, 600)
+    }
   }
 
   return (
@@ -150,22 +158,6 @@ export default function Login() {
             </div>
           </div>
 
-          <div className="form-options">
-            <label className="remember-option">
-              <input
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(event) => setRememberMe(event.target.checked)}
-              />
-              <span>Lembrar-me</span>
-            </label>
-
-            {/* O fluxo real de recuperação será conectado posteriormente. */}
-            <button type="button" className="forgot-password">
-              Esqueci minha senha
-            </button>
-          </div>
-
           {error && (
             <p className="form-error" role="alert">
               {error}
@@ -176,6 +168,11 @@ export default function Login() {
             {isSubmitting ? 'Verificando...' : 'Entrar'}
           </button>
         </form>
+
+        <p className="account-action">
+          Ainda não possui acesso?{' '}
+          <button type="button" onClick={onRegister}>Criar conta</button>
+        </p>
 
         <p className="security-note">
           Acesso restrito a usuários autorizados.

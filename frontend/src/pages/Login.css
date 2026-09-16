@@ -298,3 +298,23 @@ form {
     flex-direction: column;
   }
 }
+
+.account-action {
+  margin: 20px 0 0;
+  color: #626b76;
+  font-size: 14px;
+  text-align: center;
+}
+
+.account-action button {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: #2a5795;
+  background: transparent;
+  font-weight: 700;
+}
+
+.account-action button:hover {
+  text-decoration: underline;
+}
