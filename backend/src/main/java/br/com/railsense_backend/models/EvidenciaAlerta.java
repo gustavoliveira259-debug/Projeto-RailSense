@@ -1,6 +1,7 @@
 package br.com.railsense_backend.models;
 
 import br.com.railsense_backend.enums.TipoEvidencia;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -23,14 +24,15 @@ import lombok.Setter;
 @Builder
 public class EvidenciaAlerta extends BaseEntity {
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "alerta_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "alerta_id", nullable = false)
     private Alerta alerta;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "imagem_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "imagem_id", nullable = false)
     private Imagem imagem;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "tipo", nullable = false, length = 20)
     private TipoEvidencia tipo;
 }

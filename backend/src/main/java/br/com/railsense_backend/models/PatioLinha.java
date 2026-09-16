@@ -21,11 +21,13 @@ import lombok.Setter;
 @Builder
 public class PatioLinha extends BaseEntity {
     
-    @Column(nullable = false)
+    @Column(name = "nome", nullable = false)
     private String nome;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "tipo", nullable = false)
     private TipoPatioLinha tipo;
 
+    @Column(name = "ativo", nullable = false)
     private boolean ativo = true;
 }
