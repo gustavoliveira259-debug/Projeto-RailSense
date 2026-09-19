@@ -46,3 +46,8 @@ app:
     email: ${ADMIN_EMAIL:}
     password: ${ADMIN_PASSWORD:}
     name: ${ADMIN_NAME:Administrador RailSense}
+  cloudinary:
+    url: ${CLOUDINARY_URL}
+  gemini:
+    api-key: ${GEMINI_API_KEY}
+    model: gemini-2.0-flash
