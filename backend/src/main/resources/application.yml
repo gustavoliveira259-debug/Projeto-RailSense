@@ -46,3 +46,5 @@ app:
     email: ${ADMIN_EMAIL:}
     password: ${ADMIN_PASSWORD:}
     name: ${ADMIN_NAME:Administrador RailSense}
+  cloudinary:
+    url: ${CLOUDINARY_URL}
