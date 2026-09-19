@@ -29,7 +29,7 @@ server:
       cookie:
         name: RAILSENSE_SESSION
         http-only: true
-        same-site: strict
+        same-site: ${SESSION_COOKIE_SAME_SITE:strict}
         secure: ${SESSION_COOKIE_SECURE:false}
 
 management:
