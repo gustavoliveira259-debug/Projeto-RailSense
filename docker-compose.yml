@@ -31,6 +31,7 @@ services:
       ADMIN_NAME: ${ADMIN_NAME:-Administrador RailSense}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-strict}
     ports:
       - "8080:8080"
 
@@ -43,19 +44,7 @@ services:
       - backend
     ports:
       - "3000:80"
-      
-  broker:
-    image: eclipse-mosquitto:2
-    container_name: railsense-broker
-    restart: unless-stopped
-    ports:
-      - "1883:1883"
-    volumes:
-      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - mosquitto_data:/mosquitto/data
-      - mosquitto_log:/mosquitto/log
 
 volumes:
   postgres_data:
-  mosquitto_data:
-  mosquitto_log:
+
