@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 
@@ -14,9 +15,12 @@ if (!rootElement) {
 
 // StrictMode ajuda a identificar problemas comuns durante o desenvolvimento.
 // Ele não substitui as validações e proteções que serão implementadas no backend.
+// BrowserRouter habilita rotas reais (URL muda, F5 mantém a tela, botão
+// voltar/avançar do navegador funciona).
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </StrictMode>,
 )
-
