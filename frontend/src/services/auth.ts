@@ -58,3 +58,23 @@ export async function getCurrentUser(): Promise<AuthenticatedUser> {
   if (!response.ok) throw new Error('Sessão não autenticada.')
   return response.json() as Promise<AuthenticatedUser>
 }
+
+/**
+ * Encerra a sessão no backend (endpoint padrão de logout do Spring Security)
+ * e limpa qualquer estado local relacionado ao usuário autenticado.
+ *
+ * Mesmo que a chamada ao servidor falhe (ex.: sessão já expirada), o estado
+ * local deve ser limpo pelo chamador para não deixar a interface presa em
+ * uma tela autenticada.
+ */
+export async function logout(): Promise<void> {
+  await fetch('/logout', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'X-XSRF-TOKEN': await ensureCsrfToken(),
+    },
+  }).catch(() => {
+    // Falha de rede ao encerrar a sessão não deve impedir o logout local.
+  })
+}
