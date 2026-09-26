@@ -39,6 +39,14 @@ export default function TrainDetails({ train, onBack }: TrainDetailsProps) {
   const [wagonFilter, setWagonFilter] = useState<TrainStatus | 'all'>('all')
   const [selectedWagonId, setSelectedWagonId] = useState<string | null>(null)
 
+  // Hooks precisam ser chamados sempre na mesma ordem, então o cálculo dos
+  // vagões visíveis vem antes do retorno antecipado abaixo (que só acontece
+  // quando não há dados para o trem informado).
+  const visibleWagons = useMemo(
+    () => details?.wagons.filter((wagon) => wagonFilter === 'all' || wagon.status === wagonFilter) ?? [],
+    [details, wagonFilter],
+  )
+
   if (!details) {
     return (
       <main className="details-page details-empty">
@@ -49,10 +57,6 @@ export default function TrainDetails({ train, onBack }: TrainDetailsProps) {
     )
   }
 
-  const visibleWagons = useMemo(
-    () => details.wagons.filter((wagon) => wagonFilter === 'all' || wagon.status === wagonFilter),
-    [details.wagons, wagonFilter],
-  )
   const selectedWagon = details.wagons.find((wagon) => wagon.id === selectedWagonId) ?? visibleWagons[0] ?? details.wagons[0]
 
   return (
@@ -177,4 +181,3 @@ export default function TrainDetails({ train, onBack }: TrainDetailsProps) {
     </main>
   )
 }
-
