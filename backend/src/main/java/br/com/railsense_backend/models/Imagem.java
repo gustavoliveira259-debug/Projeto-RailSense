@@ -30,6 +30,12 @@ public class Imagem extends BaseEntity {
     @Column(name = "url_arquivo", nullable = false)
     private String urlArquivo;
 
+    @Column(name = "public_id")
+    private String publicId;
+
+    @Column(name = "mime_type")
+    private String mimeType;
+
     @Column(name = "timestamp_captura")
     private Instant timestampCaptura;
 
