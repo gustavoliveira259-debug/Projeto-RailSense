@@ -1,13 +1,15 @@
 package br.com.railsense_backend.client.gemini;
 
+import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
+import br.com.railsense_backend.exception.GeminiAnalysisException;
 
 @Service
 public class GeminiClient {
