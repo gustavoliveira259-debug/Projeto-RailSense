@@ -65,7 +65,18 @@
   background: transparent;
   font-size: 16px;
   text-align: left;
+  text-decoration: none;
   transition: background 160ms ease, transform 160ms ease;
+}
+
+.nav-item-disabled {
+  cursor: not-allowed;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.nav-item-disabled:hover {
+  background: transparent;
+  transform: none;
 }
 
 .nav-item:hover {
@@ -114,19 +125,58 @@
   height: 42px;
 }
 
+.sidebar-user-info {
+  flex: 1;
+  min-width: 0;
+}
+
 .sidebar-user strong,
 .sidebar-user span {
   display: block;
 }
 
 .sidebar-user strong {
+  overflow: hidden;
   font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-user span {
   margin-top: 4px;
   color: rgba(255, 255, 255, 0.65);
   font-size: 12px;
+}
+
+.sidebar-logout-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.75);
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-logout-button:hover,
+.sidebar-logout-button:focus-visible {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.logout-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .dashboard-content {
@@ -160,6 +210,12 @@
   background: currentColor;
 }
 
+.topbar-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .profile-button {
   display: inline-flex;
   align-items: center;
@@ -167,7 +223,6 @@
   padding: 6px 10px 6px 7px;
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 22px;
-  cursor: pointer;
   color: #ffffff;
   background: transparent;
   font-size: 13px;
@@ -177,6 +232,30 @@
   width: 30px;
   height: 30px;
   color: var(--dashboard-blue);
+}
+
+.topbar-logout-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 22px;
+  cursor: pointer;
+  color: #ffffff;
+  background: transparent;
+  font-size: 13px;
+  transition: background 0.15s ease;
+}
+
+.topbar-logout-button:hover,
+.topbar-logout-button:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.topbar-logout-button .logout-icon {
+  width: 16px;
+  height: 16px;
 }
 
 .dashboard-main {
@@ -263,8 +342,7 @@
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
-.train-card:hover,
-.train-card-selected {
+.train-card:hover {
   border-color: var(--dashboard-light-blue);
   box-shadow: 0 16px 34px rgba(32, 104, 186, 0.12);
   transform: translateY(-3px);
@@ -360,15 +438,6 @@
 
 .access-train-button:active {
   transform: scale(0.98);
-}
-
-.selection-feedback {
-  margin: 18px 0 0;
-  padding: 14px 17px;
-  border-left: 4px solid var(--dashboard-success);
-  color: #356346;
-  background: #eefaf0;
-  font-size: 14px;
 }
 
 /* Foco visível para navegação por teclado. */

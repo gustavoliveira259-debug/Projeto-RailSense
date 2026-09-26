@@ -1,12 +1,27 @@
-import { useState } from 'react'
-import type { Train, TrainStatus } from '../types/train'
+import { NavLink, useNavigate } from 'react-router-dom'
+import type { TrainStatus } from '../types/train'
 import { demoTrains } from '../data/trains'
 import logo from '../assets/Logo.png'
+import type { AuthenticatedUser } from '../services/auth'
 import './Dashboard.css'
 
 type DashboardProps = {
-  /** Callback executado quando o usuário escolhe um trem. */
-  onSelectTrain?: (train: Train) => void
+  /** Usuário autenticado exibido na sidebar e na barra superior. */
+  user: AuthenticatedUser
+  /** Callback executado quando o usuário pede para encerrar a sessão. */
+  onLogout: () => void
+}
+
+/** Retorna a inicial usada no avatar a partir do nome do usuário. */
+function userInitial(name: string) {
+  return name.trim().charAt(0).toUpperCase() || '?'
+}
+
+/** Traduz o papel retornado pelo backend para um rótulo amigável. */
+function roleLabel(papel: string) {
+  if (papel === 'ADMIN') return 'Administrador'
+  if (papel === 'ENGENHEIRO') return 'Engenheiro'
+  return papel
 }
 
 /** Ícone genérico para os itens da navegação lateral. */
@@ -22,6 +37,17 @@ function NavigationIcon({ name }: { name: 'home' | 'train' | 'alert' | 'history'
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="navigation-icon">
       {paths[name]}
+    </svg>
+  )
+}
+
+/** Ícone de saída usado no botão de logout. */
+function LogoutIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="logout-icon">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="m16 17 5-5-5-5" />
+      <path d="M21 12H9" />
     </svg>
   )
 }
@@ -44,12 +70,11 @@ function statusLabel(status: TrainStatus) {
   return 'Monitoramento ativo'
 }
 
-export default function Dashboard({ onSelectTrain }: DashboardProps) {
-  const [selectedTrainId, setSelectedTrainId] = useState<string | null>(null)
+export default function Dashboard({ user, onLogout }: DashboardProps) {
+  const navigate = useNavigate()
 
-  function handleSelectTrain(train: Train) {
-    setSelectedTrainId(train.id)
-    onSelectTrain?.(train)
+  function handleSelectTrain(trainId: string) {
+    navigate(`/trains/${trainId}`)
   }
 
   return (
@@ -61,45 +86,59 @@ export default function Dashboard({ onSelectTrain }: DashboardProps) {
         </div>
 
         <nav className="dashboard-navigation" aria-label="Navegação principal">
-          <button className="nav-item nav-item-active" type="button">
+          <NavLink to="/dashboard" className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : ''}`}>
             <NavigationIcon name="home" />
             <span>Início</span>
-          </button>
-          <button className="nav-item" type="button">
+          </NavLink>
+          <NavLink to="/dashboard" className={({ isActive }) => `nav-item ${isActive ? 'nav-item-active' : ''}`}>
             <NavigationIcon name="train" />
             <span>Trens</span>
-          </button>
-          <button className="nav-item" type="button">
+          </NavLink>
+          <button className="nav-item nav-item-disabled" type="button" disabled aria-disabled="true" title="Em breve">
             <NavigationIcon name="alert" />
             <span>Alertas</span>
           </button>
-          <button className="nav-item" type="button">
+          <button className="nav-item nav-item-disabled" type="button" disabled aria-disabled="true" title="Em breve">
             <NavigationIcon name="history" />
             <span>Histórico</span>
           </button>
-          <button className="nav-item" type="button">
+          <button className="nav-item nav-item-disabled" type="button" disabled aria-disabled="true" title="Em breve">
             <NavigationIcon name="settings" />
             <span>Configurações</span>
           </button>
         </nav>
 
         <div className="sidebar-user">
-          <div className="user-avatar" aria-hidden="true">G</div>
-          <div>
-            <strong>Gustavo Oliveira</strong>
-            <span>Engenheiro</span>
+          <div className="user-avatar" aria-hidden="true">{userInitial(user.nome)}</div>
+          <div className="sidebar-user-info">
+            <strong>{user.nome}</strong>
+            <span>{roleLabel(user.papel)}</span>
           </div>
+          <button
+            type="button"
+            className="sidebar-logout-button"
+            onClick={onLogout}
+            aria-label="Sair da conta"
+            title="Sair da conta"
+          >
+            <LogoutIcon />
+          </button>
         </div>
       </aside>
 
       <section className="dashboard-content">
         <header className="dashboard-topbar">
           <span className="topbar-status"><i /> Sistema online</span>
-          <button className="profile-button" type="button" aria-label="Abrir perfil de Gustavo Oliveira">
-            <span className="profile-avatar">G</span>
-            <span>Gustavo Oliveira</span>
-            <span aria-hidden="true">⌄</span>
-          </button>
+          <div className="topbar-user">
+            <span className="profile-button" aria-label={`Usuário autenticado: ${user.nome}`}>
+              <span className="profile-avatar">{userInitial(user.nome)}</span>
+              <span>{user.nome}</span>
+            </span>
+            <button type="button" className="topbar-logout-button" onClick={onLogout}>
+              <LogoutIcon />
+              <span>Sair</span>
+            </button>
+          </div>
         </header>
 
         <div className="dashboard-main">
@@ -120,10 +159,7 @@ export default function Dashboard({ onSelectTrain }: DashboardProps) {
 
             <div className="train-grid">
               {demoTrains.map((train) => (
-                <article
-                  className={`train-card ${selectedTrainId === train.id ? 'train-card-selected' : ''}`}
-                  key={train.id}
-                >
+                <article className="train-card" key={train.id}>
                   <div className="train-card-icon"><TrainIcon /></div>
                   <h3>{train.name}</h3>
                   <p>{train.description}</p>
@@ -137,7 +173,7 @@ export default function Dashboard({ onSelectTrain }: DashboardProps) {
                   <button
                     className="access-train-button"
                     type="button"
-                    onClick={() => handleSelectTrain(train)}
+                    onClick={() => handleSelectTrain(train.id)}
                   >
                     Acessar trem <span aria-hidden="true">→</span>
                   </button>
@@ -145,15 +181,8 @@ export default function Dashboard({ onSelectTrain }: DashboardProps) {
               ))}
             </div>
           </section>
-
-          {selectedTrainId && (
-            <p className="selection-feedback" role="status">
-              Trem selecionado. A tela de vagões será implementada na próxima etapa.
-            </p>
-          )}
         </div>
       </section>
     </main>
   )
 }
-
