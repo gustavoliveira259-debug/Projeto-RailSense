@@ -24,7 +24,7 @@ function RegisterRoute({ user, onAuthenticated }: AuthScreensProps) {
   const navigate = useNavigate()
   if (user) return <Navigate to="/dashboard" replace />
   return <Register onAuthenticated={onAuthenticated} onBackToLogin={() => navigate('/login')} />
-
+}
 
 /** Busca o trem pelo id da URL e entrega para a tela de detalhes. */
 function TrainDetailsRoute() {
