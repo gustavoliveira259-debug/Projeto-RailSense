@@ -3,6 +3,7 @@ CREATE TABLE imagens (
     eixo_id BIGINT REFERENCES eixos(id),
     url_arquivo VARCHAR(500) NOT NULL,
     public_id VARCHAR(255),
+    mime_type VARCHAR(50),
     timestamp_captura TIMESTAMP,
     eh_baseline BOOLEAN NOT NULL DEFAULT false,
     baseline_ativa BOOLEAN NOT NULL DEFAULT false,

@@ -76,7 +76,7 @@ public class SecurityConfig {
             .map(String::trim)
             .filter(origin -> !origin.isEmpty())
             .toList());
-        configuration.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN"));
         configuration.setAllowCredentials(true);
 
