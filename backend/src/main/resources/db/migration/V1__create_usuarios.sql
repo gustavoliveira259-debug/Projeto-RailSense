@@ -1,0 +1,9 @@
+CREATE TABLE usuarios (
+    id BIGSERIAL PRIMARY KEY,
+    nome VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    hash_senha VARCHAR(255) NOT NULL,
+    papel VARCHAR(20) NOT NULL CHECK (papel IN ('ENGENHEIRO', 'GERENTE', 'ADMIN')),
+    ativo BOOLEAN NOT NULL DEFAULT true,
+    criado_em TIMESTAMP NOT NULL DEFAULT now()
+);
