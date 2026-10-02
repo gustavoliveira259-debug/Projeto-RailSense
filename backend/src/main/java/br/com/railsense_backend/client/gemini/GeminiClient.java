@@ -27,16 +27,20 @@ public class GeminiClient {
     }
 
     @SuppressWarnings("unchecked")
-    public Map<String, Object> analyzeImage(byte[] imageBytes, String mimeType, String prompt) {
-        String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+    public Map<String, Object> compareImages(byte[] baselineBytes, String baselineMime,
+            byte[] currentBytes, String currentMime, String prompt) {
 
         Map<String, Object> requestBody = Map.of(
             "contents", List.of(Map.of(
                 "parts", List.of(
-                    Map.of("inlineData", Map.of("mimeType", mimeType, "data", base64Image)),
+                    Map.of("text", "Imagem de referência (baseline):"),
+                    Map.of("inlineData", Map.of("mimeType", baselineMime, "data", encode(baselineBytes))),
+                    Map.of("text", "Imagem atual a ser comparada:"),
+                    Map.of("inlineData", Map.of("mimeType", currentMime, "data", encode(currentBytes))),
                     Map.of("text", prompt)
                 )
-            ))
+            )),
+            "generationConfig", Map.of("responseMimeType", "application/json")
         );
 
         try {
@@ -50,5 +54,9 @@ public class GeminiClient {
         } catch (Exception e) {
             throw new GeminiAnalysisException("Falha ao chamar a API do Gemini", e);
         }
+    }
+
+    private String encode(byte[] bytes) {
+        return Base64.getEncoder().encodeToString(bytes);
     }
 }
