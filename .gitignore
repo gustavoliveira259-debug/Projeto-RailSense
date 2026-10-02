@@ -1,1 +1,9 @@
+# PlatformIO
+.pio/
+.vscode/
+
 .env
+
+
+# Dependências e builds
+node_modules/
