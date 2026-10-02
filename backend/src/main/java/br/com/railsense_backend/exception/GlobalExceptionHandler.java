@@ -8,7 +8,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler({EixoNotFoundException.class, ImageNotFoundException.class})
+    @ExceptionHandler({EixoNotFoundException.class, ImageNotFoundException.class,
+            PatioLinhaNotFoundException.class, VagaoNotFoundException.class})
     public ResponseEntity<ApiError> handleNotFound(RuntimeException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(e.getMessage()));
     }
