@@ -9,7 +9,7 @@
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-const char* mqtt_server = "SEU_BROKER";
+const char* mqtt_server = "192.168.56.1";
 const int mqtt_port = 1883;
 
 void setup_wifi() {
@@ -61,8 +61,8 @@ void loop() {
 
   int valor = analogRead(pot);
 
-  char mensagem[10];
-  sprintf(mensagem, "%d", valor);
+  char mensagem[64];
+  snprintf(mensagem, sizeof(mensagem), "{\"device\":\"esp32-01\",\"valor\":%d}", valor);
 
   client.publish(
     "railsense/sensor/vibracao",
