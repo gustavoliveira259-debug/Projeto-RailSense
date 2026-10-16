@@ -14,10 +14,10 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "usuarios")
-@Getter 
-@Setter 
-@NoArgsConstructor 
-@AllArgsConstructor 
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class Usuario extends BaseEntity {
 
@@ -32,5 +32,6 @@ public class Usuario extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private Papel papel;
 
+    @Builder.Default
     private boolean ativo = true;
 }

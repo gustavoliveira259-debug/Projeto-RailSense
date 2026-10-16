@@ -30,5 +30,6 @@ public class Eixo extends BaseEntity {
     @Column(name = "identificador_unico", unique = true, nullable = false)
     private String identificadorUnico;
 
+    @Builder.Default
     private boolean ativo = true;
 }
