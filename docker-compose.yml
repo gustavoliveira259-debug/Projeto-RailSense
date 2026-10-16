@@ -25,6 +25,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
       CLOUDINARY_URL: ${CLOUDINARY_URL}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
@@ -35,15 +36,15 @@ services:
     ports:
       - "8080:8080"
 
-  broker:
-    image: eclipse-mosquitto:2
-    container_name: monitoramento-broker
-    restart: always
-    ports:
-      - "1883:1883"
-    volumes:
-      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - mosquitto_data:/mosquitto/data
+  #broker:
+  #  image: eclipse-mosquitto:2
+  #  container_name: monitoramento-broker
+  #  restart: always
+  #  ports:
+  #    - "1883:1883"
+  #  volumes:
+  #    - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+  #    - mosquitto_data:/mosquitto/data
 
   frontend:
     build:
