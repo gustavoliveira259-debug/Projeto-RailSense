@@ -30,5 +30,6 @@ public class Vagao extends BaseEntity {
     @JoinColumn(name = "patio_linha_id")
     private PatioLinha patioLinha;
 
+    @Builder.Default
     private boolean ativo = true;
 }

@@ -1,6 +1,7 @@
 package br.com.railsense_backend.controller;
 
 import br.com.railsense_backend.dto.request.PatioLinhaRequest;
+import br.com.railsense_backend.dto.response.PatioLinhaResponse;
 import br.com.railsense_backend.models.PatioLinha;
 import br.com.railsense_backend.repository.PatioLinhaRepository;
 import jakarta.validation.Valid;
@@ -21,17 +22,17 @@ public class PatioLinhaController {
     }
 
     @GetMapping
-    public List<PatioLinha> listar() {
-        return repository.findAll();
+    public List<PatioLinhaResponse> listar() {
+        return repository.findAll().stream().map(PatioLinhaResponse::from).toList();
     }
 
     @PostMapping
-    public ResponseEntity<PatioLinha> criar(@Valid @RequestBody PatioLinhaRequest request) {
+    public ResponseEntity<PatioLinhaResponse> criar(@Valid @RequestBody PatioLinhaRequest request) {
         PatioLinha salvo = repository.save(PatioLinha.builder()
             .nome(request.nome())
             .tipo(request.tipo())
             .ativo(true)
             .build());
-        return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
+        return ResponseEntity.status(HttpStatus.CREATED).body(PatioLinhaResponse.from(salvo));
     }
 }

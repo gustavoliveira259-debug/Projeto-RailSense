@@ -4,7 +4,10 @@ import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+
+import br.com.railsense_backend.enums.Classificacao;
 
 @Component
 public class GeminiResponseParser {
@@ -24,16 +27,19 @@ public class GeminiResponseParser {
             String jsonText = (String) parts.get(0).get("text");
 
             Map<String, Object> parsed = objectMapper.readValue(jsonText, Map.class);
-            return new ParsedAnalysis(
-                (String) parsed.get("classificacao"),
-                ((Number) parsed.get("score_diferenca")).floatValue(),
-                (List<String>) parsed.get("regioes_anomalia")
-            );
+            Classificacao classificacao = Classificacao.valueOf(
+                ((String) parsed.get("classificacao")).trim().toUpperCase(Locale.ROOT));
+            float score = ((Number) parsed.get("score_diferenca")).floatValue();
+            if (score < 0f || score > 1f) {
+                throw new IllegalArgumentException("score_diferenca fora de [0, 1]: " + score);
+            }
+            List<String> regioes = (List<String>) parsed.get("regioes_anomalia");
+            return new ParsedAnalysis(classificacao, score, regioes != null ? regioes : List.of());
         } catch (Exception e) {
             throw new br.com.railsense_backend.exception.GeminiAnalysisException(
                 "Falha ao interpretar resposta do Gemini", e);
         }
     }
 
-    public record ParsedAnalysis(String classificacao, Float scoreDiferenca, List<String> regioesAnomalia) {}
+    public record ParsedAnalysis(Classificacao classificacao, Float scoreDiferenca, List<String> regioesAnomalia) {}
 }

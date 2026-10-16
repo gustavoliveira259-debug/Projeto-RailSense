@@ -14,7 +14,6 @@ import br.com.railsense_backend.client.cloudinary.CloudinaryService;
 import br.com.railsense_backend.client.cloudinary.CloudinaryUploadResult;
 import br.com.railsense_backend.client.gemini.GeminiClient;
 import br.com.railsense_backend.dto.response.ImageUploadResponse;
-import br.com.railsense_backend.enums.Classificacao;
 import br.com.railsense_backend.exception.EixoNotFoundException;
 import br.com.railsense_backend.models.Analise;
 import br.com.railsense_backend.models.Eixo;
@@ -97,7 +96,7 @@ public class ImageService {
                     .imagemAtual(imagemAtual)
                     .imagemBaseline(baseline)
                     .scoreDiferenca(parsed.scoreDiferenca())
-                    .classificacao(Classificacao.valueOf(parsed.classificacao()))
+                    .classificacao(parsed.classificacao())
                     .regioesAnomalia(Map.of("regioes", parsed.regioesAnomalia()))
                     .respostaBruta(geminiResponse)
                     .build());

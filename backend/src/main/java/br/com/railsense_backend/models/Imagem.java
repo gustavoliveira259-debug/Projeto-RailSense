@@ -40,8 +40,10 @@ public class Imagem extends BaseEntity {
     private Instant timestampCaptura;
 
     @Column(name = "eh_baseline")
+    @Builder.Default
     private boolean ehBaseline = false;
 
     @Column(name = "baseline_ativa")
+    @Builder.Default
     private boolean baselineAtiva = false; // só 1 true por eixo
 }

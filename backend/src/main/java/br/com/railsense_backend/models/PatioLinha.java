@@ -27,5 +27,6 @@ public class PatioLinha extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private TipoPatioLinha tipo;
 
+    @Builder.Default
     private boolean ativo = true;
 }

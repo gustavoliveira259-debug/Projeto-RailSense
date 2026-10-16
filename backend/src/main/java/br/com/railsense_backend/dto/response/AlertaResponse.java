@@ -1,8 +1,9 @@
 package br.com.railsense_backend.dto.response;
 
+import java.time.Instant;
+
 import br.com.railsense_backend.enums.NivelAlerta;
 import br.com.railsense_backend.enums.StatusAlerta;
-import java.time.Instant;
 
 public record AlertaResponse(
     Long id,
