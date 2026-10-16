@@ -1,6 +1,7 @@
 package br.com.railsense_backend.controller;
 
 import br.com.railsense_backend.dto.request.VagaoRequest;
+import br.com.railsense_backend.dto.response.VagaoResponse;
 import br.com.railsense_backend.exception.PatioLinhaNotFoundException;
 import br.com.railsense_backend.models.PatioLinha;
 import br.com.railsense_backend.models.Vagao;
@@ -26,12 +27,12 @@ public class VagaoController {
     }
 
     @GetMapping
-    public List<Vagao> listar() {
-        return vagoes.findAll();
+    public List<VagaoResponse> listar() {
+        return vagoes.findAll().stream().map(VagaoResponse::from).toList();
     }
 
     @PostMapping
-    public ResponseEntity<Vagao> criar(@Valid @RequestBody VagaoRequest request) {
+    public ResponseEntity<VagaoResponse> criar(@Valid @RequestBody VagaoRequest request) {
         PatioLinha patioLinha = patiosLinhas.findById(request.patioLinhaId())
             .orElseThrow(() -> new PatioLinhaNotFoundException(request.patioLinhaId()));
 
@@ -41,6 +42,6 @@ public class VagaoController {
             .patioLinha(patioLinha)
             .ativo(true)
             .build());
-        return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
+        return ResponseEntity.status(HttpStatus.CREATED).body(VagaoResponse.from(salvo));
     }
 }

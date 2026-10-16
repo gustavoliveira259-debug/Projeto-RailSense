@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.com.railsense_backend.dto.request.EixoRequest;
 import br.com.railsense_backend.dto.response.EixoResponse;
 import br.com.railsense_backend.dto.response.ImagemResponse;
+import br.com.railsense_backend.exception.EixoNotFoundException;
 import br.com.railsense_backend.exception.VagaoNotFoundException;
 import br.com.railsense_backend.models.Eixo;
 import br.com.railsense_backend.models.Vagao;
@@ -38,18 +39,14 @@ public class EixoController {
 
     @GetMapping
     public List<EixoResponse> listar() {
-        return eixos.findAll().stream()
-                .map(e -> new EixoResponse(
-                        e.getId(),
-                        e.getPosicao(),
-                        e.getIdentificadorUnico(),
-                        e.getVagao().getNumeroUk(),
-                        e.getVagao().getPatioLinha().getNome()))
-                .toList();
+        return eixos.findAll().stream().map(EixoResponse::from).toList();
     }
 
     @GetMapping("/{id}/imagens")
     public List<ImagemResponse> listarImagens(@PathVariable Long id) {
+        if (!eixos.existsById(id)) {
+            throw new EixoNotFoundException(id);
+        }
         return imagens.findByEixoIdOrderByTimestampCapturaDesc(id).stream()
                 .map(i -> new ImagemResponse(i.getId(), i.getUrlArquivo(), i.getTimestampCaptura(),
                         i.isEhBaseline(), i.isBaselineAtiva()))
@@ -57,7 +54,7 @@ public class EixoController {
     }
 
     @PostMapping
-    public ResponseEntity<Eixo> criar(@Valid @RequestBody EixoRequest request) {
+    public ResponseEntity<EixoResponse> criar(@Valid @RequestBody EixoRequest request) {
         Vagao vagao = vagoes.findById(request.vagaoId())
                 .orElseThrow(() -> new VagaoNotFoundException(request.vagaoId()));
 
@@ -67,6 +64,6 @@ public class EixoController {
                 .identificadorUnico(request.identificadorUnico())
                 .ativo(true)
                 .build());
-        return ResponseEntity.status(HttpStatus.CREATED).body(salvo);
+        return ResponseEntity.status(HttpStatus.CREATED).body(EixoResponse.from(salvo));
     }
 }
