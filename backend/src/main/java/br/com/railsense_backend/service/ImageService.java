@@ -7,6 +7,8 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import br.com.railsense_backend.client.ImageBytesFetcher;
@@ -32,13 +34,13 @@ public class ImageService {
     private final GeminiClient geminiClient;
     private final GeminiResponseParser responseParser;
     private final ImageBytesFetcher bytesFetcher;
-    // no construtor, adiciona:
     private final AlertaService alertaService;
+    private final ImageFileValidator fileValidator;
 
     public ImageService(ImagemRepository imagens, AnaliseRepository analises, EixoRepository eixos,
             CloudinaryService cloudinaryService, GeminiClient geminiClient,
             GeminiResponseParser responseParser, ImageBytesFetcher bytesFetcher,
-            AlertaService alertaService) {
+            AlertaService alertaService, ImageFileValidator fileValidator) {
         this.imagens = imagens;
         this.analises = analises;
         this.eixos = eixos;
@@ -47,14 +49,16 @@ public class ImageService {
         this.responseParser = responseParser;
         this.bytesFetcher = bytesFetcher;
         this.alertaService = alertaService;
+        this.fileValidator = fileValidator;
     }
 
     @Transactional
     public ImageUploadResponse uploadImagem(MultipartFile file, Long eixoId) {
+        String mimeType = fileValidator.validar(file);
         Eixo eixo = eixos.findById(eixoId).orElseThrow(() -> new EixoNotFoundException(eixoId));
 
         CloudinaryUploadResult uploadResult = cloudinaryService.upload(file);
-        String mimeType = file.getContentType() != null ? file.getContentType() : "image/jpeg";
+        removerDoCloudinarySeReverter(uploadResult.publicId());
 
         Imagem imagem = imagens.save(Imagem.builder()
                 .eixo(eixo)
@@ -78,6 +82,21 @@ public class ImageService {
 
         return new ImageUploadResponse(imagem.getId(), imagem.getUrlArquivo(),
                 analise.getId(), analise.getClassificacao(), analise.getScoreDiferenca(), alertaId);
+    }
+
+    /**
+     * O Cloudinary não participa da transação do banco: se ela for revertida (falha no
+     * Gemini, no banco ou no commit), a imagem já enviada ficaria órfã. Remove após o rollback.
+     */
+    private void removerDoCloudinarySeReverter(String publicId) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    cloudinaryService.delete(publicId);
+                }
+            }
+        });
     }
 
     private Analise analisar(Imagem imagemAtual, Imagem baseline, MultipartFile currentFile) {
