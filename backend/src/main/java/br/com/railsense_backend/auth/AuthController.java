@@ -6,10 +6,9 @@ import br.com.railsense_backend.repository.UsuarioRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import java.util.List;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,13 +30,16 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final SecurityContextRepository securityContextRepository;
     private final LoginAttemptService attempts;
+    private final boolean registroPublicoHabilitado;
 
     public AuthController(UsuarioRepository usuarios, PasswordEncoder passwordEncoder,
-            SecurityContextRepository securityContextRepository, LoginAttemptService attempts) {
+            SecurityContextRepository securityContextRepository, LoginAttemptService attempts,
+            @Value("${app.security.registration-enabled:true}") boolean registroPublicoHabilitado) {
         this.usuarios = usuarios;
         this.passwordEncoder = passwordEncoder;
         this.securityContextRepository = securityContextRepository;
         this.attempts = attempts;
+        this.registroPublicoHabilitado = registroPublicoHabilitado;
     }
 
     @GetMapping("/csrf")
@@ -65,8 +67,7 @@ public class AuthController {
 
         httpRequest.getSession();
         httpRequest.changeSessionId();
-        var authentication = UsernamePasswordAuthenticationToken.authenticated(usuario.getId(), null,
-            List.of(() -> "ROLE_" + usuario.getPapel().name()));
+        var authentication = Autenticacao.de(usuario);
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
@@ -77,6 +78,11 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegistrationRequest request,
             HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+        // Usuários são criados pelo ADMIN (/api/usuarios); o cadastro aberto pode ser desligado.
+        if (!registroPublicoHabilitado) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ApiError("Cadastro público desativado. Peça acesso a um administrador."));
+        }
         String email = request.email().trim().toLowerCase();
         String registrationKey = clientAddress(httpRequest) + ":register";
         if (attempts.isBlocked(registrationKey) || usuarios.findByEmailIgnoreCase(email).isPresent()) {
@@ -95,8 +101,7 @@ public class AuthController {
 
         httpRequest.getSession();
         httpRequest.changeSessionId();
-        var authentication = UsernamePasswordAuthenticationToken.authenticated(usuario.getId(), null,
-            List.of(() -> "ROLE_" + usuario.getPapel().name()));
+        var authentication = Autenticacao.de(usuario);
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);

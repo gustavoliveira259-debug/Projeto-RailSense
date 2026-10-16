@@ -21,9 +21,13 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import br.com.railsense_backend.auth.SessaoAtualizadaFilter;
+import br.com.railsense_backend.repository.UsuarioRepository;
 
 @Configuration
 @EnableWebSecurity
@@ -31,7 +35,7 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http,
-            SecurityContextRepository securityContextRepository) throws Exception {
+            SecurityContextRepository securityContextRepository, UsuarioRepository usuarios) throws Exception {
         var csrfHandler = new CsrfTokenRequestAttributeHandler();
         csrfHandler.setCsrfRequestAttributeName(null);
 
@@ -54,10 +58,32 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
+                // GERENTE: cria os espaços de monitoramento (pátios/linhas, vagões, eixos).
+                .requestMatchers(HttpMethod.POST, "/api/patios-linhas", "/api/vagoes", "/api/eixos")
+                    .hasAnyRole("GERENTE", "ADMIN")
+                // ENGENHEIRO: monitoramento (imagens, baseline, decisão sobre alertas).
+                .requestMatchers(HttpMethod.POST, "/api/imagens", "/api/alertas/*/decisao")
+                    .hasAnyRole("ENGENHEIRO", "ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/imagens/*/baseline").hasAnyRole("ENGENHEIRO", "ADMIN")
+                // ADMIN: gestão de usuários, inclusive a listagem.
+                .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
+                // Consulta liberada a qualquer usuário logado (alertas, histórico, ordens...).
+                .requestMatchers(HttpMethod.GET, "/api/**").authenticated()
+                // ADMIN: manutenção (POST/PATCH em /api/ordens) e, por padrão seguro, qualquer
+                // escrita nova em /api que ainda não tenha regra acima.
+                .requestMatchers("/api/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
+            .addFilterBefore(new SessaoAtualizadaFilter(usuarios, securityContextRepository),
+                AuthorizationFilter.class)
             // Sem login/logout baseados em redirect: a SPA espera códigos HTTP.
             .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                // 403 com corpo JSON, no mesmo formato do GlobalExceptionHandler.
+                .accessDeniedHandler((request, response, e) -> {
+                    response.setStatus(HttpStatus.FORBIDDEN.value());
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"message\":\"Acesso negado para o seu papel ou sessão.\"}");
+                }))
             .logout(logout -> logout
                 .logoutUrl("/logout")
                 .deleteCookies("RAILSENSE_SESSION")
@@ -92,6 +118,8 @@ public class SecurityConfig {
 
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);
+        // Logout fica fora de /api (filtro padrão do Spring Security), mas também é chamado pela SPA.
+        source.registerCorsConfiguration("/logout", configuration);
         return source;
     }
 }
