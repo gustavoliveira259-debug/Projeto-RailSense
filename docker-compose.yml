@@ -20,6 +20,7 @@ services:
     restart: always
     depends_on:
       - postgres
+      - broker
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
@@ -33,19 +34,21 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-strict}
-      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-false}
+      MQTT_ENABLED: ${MQTT_ENABLED:-true}
+      MQTT_URL: ${MQTT_URL:-tcp://broker:1883}
     ports:
       - "8080:8080"
 
-  #broker:
-  #  image: eclipse-mosquitto:2
-  #  container_name: monitoramento-broker
-  #  restart: always
-  #  ports:
-  #    - "1883:1883"
-  #  volumes:
-  #    - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
-  #    - mosquitto_data:/mosquitto/data
+  broker:
+    image: eclipse-mosquitto:2
+    container_name: monitoramento-broker
+    restart: always
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
 
   frontend:
     build:
@@ -59,4 +62,5 @@ services:
 
 volumes:
   postgres_data:
+  mosquitto_data:
 
