@@ -1,7 +1,6 @@
 package br.com.railsense_backend.controller;
 
-import java.util.List;
-
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.com.railsense_backend.dto.request.AtivoRequest;
 import br.com.railsense_backend.dto.request.CriarUsuarioRequest;
 import br.com.railsense_backend.dto.request.PapelRequest;
+import br.com.railsense_backend.dto.response.PageResponse;
 import br.com.railsense_backend.dto.response.UsuarioResponse;
 import br.com.railsense_backend.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -32,8 +32,8 @@ public class UsuarioController {
     }
 
     @GetMapping
-    public List<UsuarioResponse> listar() {
-        return service.listar();
+    public PageResponse<UsuarioResponse> listar(Pageable pageable) {
+        return service.listar(pageable);
     }
 
     @PostMapping

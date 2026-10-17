@@ -1,7 +1,8 @@
 package br.com.railsense_backend.controller;
 
-import java.util.List;
-
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.com.railsense_backend.dto.request.EixoRequest;
 import br.com.railsense_backend.dto.response.EixoResponse;
 import br.com.railsense_backend.dto.response.ImagemResponse;
+import br.com.railsense_backend.dto.response.PageResponse;
 import br.com.railsense_backend.exception.EixoNotFoundException;
 import br.com.railsense_backend.exception.VagaoNotFoundException;
 import br.com.railsense_backend.models.Eixo;
@@ -38,19 +40,18 @@ public class EixoController {
     }
 
     @GetMapping
-    public List<EixoResponse> listar() {
-        return eixos.findAll().stream().map(EixoResponse::from).toList();
+    public PageResponse<EixoResponse> listar(@PageableDefault(sort = "identificadorUnico") Pageable pageable) {
+        return PageResponse.of(eixos.findAll(pageable), EixoResponse::from);
     }
 
     @GetMapping("/{id}/imagens")
-    public List<ImagemResponse> listarImagens(@PathVariable Long id) {
+    public PageResponse<ImagemResponse> listarImagens(@PathVariable Long id,
+            @PageableDefault(sort = "timestampCaptura", direction = Sort.Direction.DESC) Pageable pageable) {
         if (!eixos.existsById(id)) {
             throw new EixoNotFoundException(id);
         }
-        return imagens.findByEixoIdOrderByTimestampCapturaDesc(id).stream()
-                .map(i -> new ImagemResponse(i.getId(), i.getUrlArquivo(), i.getTimestampCaptura(),
-                        i.isEhBaseline(), i.isBaselineAtiva()))
-                .toList();
+        return PageResponse.of(imagens.findByEixoId(id, pageable), i -> new ImagemResponse(i.getId(),
+                i.getUrlArquivo(), i.getTimestampCaptura(), i.isEhBaseline(), i.isBaselineAtiva()));
     }
 
     @PostMapping

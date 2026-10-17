@@ -3,6 +3,7 @@ package br.com.railsense_backend.exception;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -36,6 +37,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ArquivoInvalidoException.class)
     public ResponseEntity<ApiError> handleArquivoInvalido(ArquivoInvalidoException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiError(e.getMessage()));
+    }
+
+    /** ?sort= com campo inexistente; sem isto o Spring Data responderia 500. */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ApiError> handleOrdenacaoInvalida(PropertyReferenceException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ApiError("Campo de ordenação inválido: " + e.getPropertyName()));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)

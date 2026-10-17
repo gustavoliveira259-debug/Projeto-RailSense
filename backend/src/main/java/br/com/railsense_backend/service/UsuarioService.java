@@ -1,14 +1,16 @@
 package br.com.railsense_backend.service;
 
-import java.util.List;
 import java.util.Locale;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.com.railsense_backend.dto.request.CriarUsuarioRequest;
+import br.com.railsense_backend.dto.response.PageResponse;
 import br.com.railsense_backend.dto.response.UsuarioResponse;
 import br.com.railsense_backend.enums.Papel;
 import br.com.railsense_backend.exception.RegraNegocioException;
@@ -28,8 +30,10 @@ public class UsuarioService {
     }
 
     @Transactional(readOnly = true)
-    public List<UsuarioResponse> listar() {
-        return usuarios.findAll(Sort.by("nome")).stream().map(UsuarioResponse::from).toList();
+    public PageResponse<UsuarioResponse> listar(Pageable pageable) {
+        // Ordenação fixa: ?sort= do cliente é ignorado para não permitir ordenar por hashSenha.
+        var pagina = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("nome"));
+        return PageResponse.of(usuarios.findAll(pagina), UsuarioResponse::from);
     }
 
     @Transactional

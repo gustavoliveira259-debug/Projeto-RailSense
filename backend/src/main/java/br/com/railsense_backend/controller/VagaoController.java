@@ -1,6 +1,7 @@
 package br.com.railsense_backend.controller;
 
 import br.com.railsense_backend.dto.request.VagaoRequest;
+import br.com.railsense_backend.dto.response.PageResponse;
 import br.com.railsense_backend.dto.response.VagaoResponse;
 import br.com.railsense_backend.exception.PatioLinhaNotFoundException;
 import br.com.railsense_backend.models.PatioLinha;
@@ -8,6 +9,8 @@ import br.com.railsense_backend.models.Vagao;
 import br.com.railsense_backend.repository.PatioLinhaRepository;
 import br.com.railsense_backend.repository.VagaoRepository;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/vagoes")
@@ -31,8 +33,8 @@ public class VagaoController {
     }
 
     @GetMapping
-    public List<VagaoResponse> listar() {
-        return vagoes.findAll().stream().map(VagaoResponse::from).toList();
+    public PageResponse<VagaoResponse> listar(@PageableDefault(sort = "numeroUk") Pageable pageable) {
+        return PageResponse.of(vagoes.findAll(pageable), VagaoResponse::from);
     }
 
     @PostMapping
