@@ -51,7 +51,7 @@ class AlertaServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new AlertaService(alertas, evidencias, decisoes, usuarios);
+        service = new AlertaService(alertas, evidencias, decisoes, usuarios, 0.6f);
     }
 
     private static Analise analise(Classificacao classificacao, float score) {
@@ -66,10 +66,11 @@ class AlertaServiceTest {
 
     @ParameterizedTest
     @CsvSource({
-        "SUSPEITO,  0.69, BAIXO",
-        "SUSPEITO,  0.70, MEDIO",
-        "VAZAMENTO, 0.69, MEDIO",
-        "VAZAMENTO, 0.70, CRITICO",
+        "SUSPEITO,  0.59, BAIXO",
+        "SUSPEITO,  0.60, MEDIO",
+        "VAZAMENTO, 0.59, MEDIO",
+        "VAZAMENTO, 0.60, CRITICO",
+        "NORMAL,    0.80, BAIXO",
     })
     void nivelDependeDaClassificacaoEDoLimiar(Classificacao classificacao, float score, NivelAlerta esperado) {
         when(alertas.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -77,12 +78,14 @@ class AlertaServiceTest {
         Optional<Alerta> alerta = service.avaliarEGerarAlerta(analise(classificacao, score));
 
         assertThat(alerta).get().extracting(Alerta::getNivel).isEqualTo(esperado);
-        assertThat(alerta.get().getStatus()).isEqualTo(StatusAlerta.NOVO);
+        assertThat(alerta.get().getStatus()).isEqualTo(StatusAlerta.EM_ANALISE);
     }
 
     @Test
     void analiseNormalNaoGeraAlertaNemEvidencia() {
-        assertThat(service.avaliarEGerarAlerta(analise(Classificacao.NORMAL, 0.9f))).isEmpty();
+        Analise analise = analise(Classificacao.NORMAL, 0.79f);
+        assertThat(service.avaliarEGerarAlerta(analise)).isEmpty();
+        assertThat(analise.getLimiarUtilizado()).isEqualTo(0.6f);
         verify(alertas, never()).save(any());
         verify(evidencias, never()).saveAll(anyList());
     }
@@ -106,7 +109,7 @@ class AlertaServiceTest {
 
     @Test
     void confirmarMudaStatusDoAlertaERegistraDecisao() {
-        Alerta alerta = Alerta.builder().status(StatusAlerta.NOVO).build();
+        Alerta alerta = Alerta.builder().status(StatusAlerta.EM_ANALISE).build();
         when(alertas.findByIdForUpdate(1L)).thenReturn(Optional.of(alerta));
         when(usuarios.findById(7L)).thenReturn(Optional.of(Usuario.builder().nome("Ana").build()));
         when(decisoes.save(any())).thenAnswer(i -> i.getArgument(0));

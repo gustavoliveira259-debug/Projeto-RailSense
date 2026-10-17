@@ -21,21 +21,25 @@ import br.com.railsense_backend.repository.AlertaRepository;
 import br.com.railsense_backend.repository.DecisaoAlertaRepository;
 import br.com.railsense_backend.repository.EvidenciaAlertaRepository;
 import br.com.railsense_backend.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 @Service
 public class AlertaService {
 
-    private static final float LIMIAR_NIVEL_ALTO = 0.7f;
-    /** Status em que o alerta ainda aguarda decisão humana. */
-    private static final Set<StatusAlerta> STATUS_PENDENTES = EnumSet.of(StatusAlerta.NOVO, StatusAlerta.EM_ANALISE);
+    /**
+     * Acima deste score, NORMAL com score alto é tratado como contradição do modelo
+     * (diz "normal", mas vê a imagem muito diferente da baseline) e vai para revisão humana.
+     */
+    static final float LIMIAR_INCONSISTENCIA = 0.8f;
+
+    /** Score a partir do qual o nível sobe um degrau (ver determinarNivel e ImageAnalysisPrompt). */
+    private final float limiarNivelAlto;
 
     private final AlertaRepository alertas;
     private final EvidenciaAlertaRepository evidencias;
@@ -43,14 +47,17 @@ public class AlertaService {
     private final UsuarioRepository usuarios;
 
     public AlertaService(AlertaRepository alertas, EvidenciaAlertaRepository evidencias,
-            DecisaoAlertaRepository decisoes, UsuarioRepository usuarios) {
+            DecisaoAlertaRepository decisoes, UsuarioRepository usuarios,
+            @Value("${app.alertas.limiar-nivel-alto:0.6}") float limiarNivelAlto) {
         this.alertas = alertas;
         this.evidencias = evidencias;
         this.decisoes = decisoes;
         this.usuarios = usuarios;
+        this.limiarNivelAlto = limiarNivelAlto;
     }
 
     public Optional<Alerta> avaliarEGerarAlerta(Analise analise) {
+        analise.setLimiarUtilizado(limiarNivelAlto);
         NivelAlerta nivel = determinarNivel(analise.getClassificacao(), analise.getScoreDiferenca());
         if (nivel == null) {
             return Optional.empty();
@@ -60,7 +67,7 @@ public class AlertaService {
             .analise(analise)
             .eixo(analise.getImagemAtual().getEixo())
             .nivel(nivel)
-            .status(StatusAlerta.NOVO)
+            .status(StatusAlerta.EM_ANALISE)
             .score(analise.getScoreDiferenca())
             .build());
 
@@ -87,7 +94,7 @@ public class AlertaService {
     @Transactional
     public DecisaoAlertaResponse decidir(Long alertaId, Long usuarioId, DecisaoAlertaRequest request) {
         Alerta alerta = alertas.findByIdForUpdate(alertaId).orElseThrow(() -> new AlertaNotFoundException(alertaId));
-        if (!STATUS_PENDENTES.contains(alerta.getStatus())) {
+        if (alerta.getStatus() != StatusAlerta.EM_ANALISE) {
             throw new RegraNegocioException("Alerta " + alertaId + " já foi decidido (status " + alerta.getStatus() + ").");
         }
         Usuario usuario = usuarios.findById(usuarioId)
@@ -106,12 +113,22 @@ public class AlertaService {
         return DecisaoAlertaResponse.from(decisao);
     }
 
-    private NivelAlerta determinarNivel(Classificacao classificacao, Float score) {
+    /**
+     * A classificação define a gravidade base; o score (escala ancorada no prompt) sobe um degrau
+     * quando a diferença é compatível com vazamento. Viés conservador: num rolamento ferroviário,
+     * deixar passar um vazamento custa muito mais que um alarme a mais revisado por um engenheiro.
+     *
+     *   VAZAMENTO: score >= limiar -> CRITICO, abaixo -> MEDIO
+     *   SUSPEITO:  score >= limiar -> MEDIO,   abaixo -> BAIXO
+     *   NORMAL:    score >= 0.8    -> BAIXO (contradição do modelo), abaixo -> sem alerta
+     */
+    NivelAlerta determinarNivel(Classificacao classificacao, Float score) {
         float valor = score != null ? score : 0f;
+        boolean acimaDoLimiar = valor >= limiarNivelAlto;
         return switch (classificacao) {
-            case NORMAL -> null;
-            case SUSPEITO -> valor >= LIMIAR_NIVEL_ALTO ? NivelAlerta.MEDIO : NivelAlerta.BAIXO;
-            case VAZAMENTO -> valor >= LIMIAR_NIVEL_ALTO ? NivelAlerta.CRITICO : NivelAlerta.MEDIO;
+            case NORMAL -> valor >= LIMIAR_INCONSISTENCIA ? NivelAlerta.BAIXO : null;
+            case SUSPEITO -> acimaDoLimiar ? NivelAlerta.MEDIO : NivelAlerta.BAIXO;
+            case VAZAMENTO -> acimaDoLimiar ? NivelAlerta.CRITICO : NivelAlerta.MEDIO;
         };
     }
 

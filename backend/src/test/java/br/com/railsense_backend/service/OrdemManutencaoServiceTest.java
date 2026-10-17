@@ -81,7 +81,7 @@ class OrdemManutencaoServiceTest {
 
     @Test
     void naoCriaOrdemParaAlertaNaoConfirmado() {
-        when(alertas.findByIdForUpdate(1L)).thenReturn(Optional.of(alerta(StatusAlerta.NOVO, NivelAlerta.CRITICO)));
+        when(alertas.findByIdForUpdate(1L)).thenReturn(Optional.of(alerta(StatusAlerta.EM_ANALISE, NivelAlerta.CRITICO)));
 
         assertThatThrownBy(() -> service.criar(new OrdemManutencaoRequest(1L, "t", null), 7L))
             .isInstanceOf(RegraNegocioException.class);
