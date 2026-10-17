@@ -6,3 +6,8 @@ node_modules/
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+# PlatformIO
+.pio/
+
+# Python
+__pycache__/

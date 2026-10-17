@@ -12,6 +12,12 @@ PubSubClient client(espClient);
 const char* mqtt_server = "192.168.56.1";
 const int mqtt_port = 1883;
 
+// Acima deste valor o ESP pede uma foto ao celular (topico railsense/camera/capturar).
+const int limiar_captura = 3000;
+// Intervalo minimo entre dois pedidos de captura, para nao inundar o backend.
+const unsigned long intervalo_captura_ms = 10000;
+unsigned long ultima_captura = 0;
+
 void setup_wifi() {
   delay(10);
 
@@ -71,6 +77,16 @@ void loop() {
 
   Serial.print("Enviado: ");
   Serial.println(mensagem);
+
+  if (valor >= limiar_captura && (ultima_captura == 0 || millis() - ultima_captura >= intervalo_captura_ms)) {
+    char comando[64];
+    snprintf(comando, sizeof(comando), "{\"device\":\"esp32-01\",\"valor\":%d}", valor);
+    client.publish("railsense/camera/capturar", comando);
+    ultima_captura = millis();
+
+    Serial.print("Captura solicitada: ");
+    Serial.println(comando);
+  }
 
   delay(1000);
 }

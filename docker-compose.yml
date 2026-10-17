@@ -36,15 +36,15 @@ services:
     ports:
       - "8080:8080"
 
-  #broker:
-  #  image: eclipse-mosquitto:2
-  #  container_name: monitoramento-broker
-  #  restart: always
-  #  ports:
-  #    - "1883:1883"
-  #  volumes:
-  #    - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
-  #    - mosquitto_data:/mosquitto/data
+  broker:
+    image: eclipse-mosquitto:2
+    container_name: monitoramento-broker
+    restart: always
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
 
   frontend:
     build:
@@ -58,4 +58,5 @@ services:
 
 volumes:
   postgres_data:
+  mosquitto_data:
 
