@@ -1,15 +1,16 @@
 package br.com.railsense_backend.service;
 
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import br.com.railsense_backend.dto.request.OrdemManutencaoRequest;
 import br.com.railsense_backend.dto.response.OrdemManutencaoResponse;
+import br.com.railsense_backend.dto.response.PageResponse;
 import br.com.railsense_backend.enums.NivelAlerta;
 import br.com.railsense_backend.enums.Prioridade;
 import br.com.railsense_backend.enums.StatusAlerta;
@@ -72,9 +73,9 @@ public class OrdemManutencaoService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrdemManutencaoResponse> listar(StatusOrdem status) {
-        var lista = status != null ? ordens.findByStatus(status) : ordens.findAll();
-        return lista.stream().map(OrdemManutencaoResponse::from).toList();
+    public PageResponse<OrdemManutencaoResponse> listar(StatusOrdem status, Pageable pageable) {
+        var pagina = status != null ? ordens.findByStatus(status, pageable) : ordens.findAll(pageable);
+        return PageResponse.of(pagina, OrdemManutencaoResponse::from);
     }
 
     @Transactional

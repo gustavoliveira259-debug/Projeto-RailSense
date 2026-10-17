@@ -2,19 +2,29 @@ package br.com.railsense_backend.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    private final String maxFileSize;
+
+    public GlobalExceptionHandler(@Value("${spring.servlet.multipart.max-file-size}") String maxFileSize) {
+        this.maxFileSize = maxFileSize;
+    }
+
     @ExceptionHandler({EixoNotFoundException.class, ImageNotFoundException.class,
             PatioLinhaNotFoundException.class, VagaoNotFoundException.class,
-            AlertaNotFoundException.class, OrdemManutencaoNotFoundException.class})
+            AlertaNotFoundException.class, OrdemManutencaoNotFoundException.class,
+            UsuarioNotFoundException.class})
     public ResponseEntity<ApiError> handleNotFound(RuntimeException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(e.getMessage()));
     }
@@ -22,6 +32,24 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RegraNegocioException.class)
     public ResponseEntity<ApiError> handleRegraNegocio(RegraNegocioException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(e.getMessage()));
+    }
+
+    @ExceptionHandler(ArquivoInvalidoException.class)
+    public ResponseEntity<ApiError> handleArquivoInvalido(ArquivoInvalidoException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiError(e.getMessage()));
+    }
+
+    /** ?sort= com campo inexistente; sem isto o Spring Data responderia 500. */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<ApiError> handleOrdenacaoInvalida(PropertyReferenceException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ApiError("Campo de ordenação inválido: " + e.getPropertyName()));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleUploadGrande(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
+            .body(new ApiError("Arquivo excede o tamanho máximo permitido de " + maxFileSize + "."));
     }
 
     @ExceptionHandler({CloudinaryUploadException.class, GeminiAnalysisException.class})

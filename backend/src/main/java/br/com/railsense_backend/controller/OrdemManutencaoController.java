@@ -1,7 +1,8 @@
 package br.com.railsense_backend.controller;
 
-import java.util.List;
-
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.com.railsense_backend.dto.request.OrdemManutencaoRequest;
 import br.com.railsense_backend.dto.request.StatusOrdemRequest;
 import br.com.railsense_backend.dto.response.OrdemManutencaoResponse;
+import br.com.railsense_backend.dto.response.PageResponse;
 import br.com.railsense_backend.enums.StatusOrdem;
 import br.com.railsense_backend.service.OrdemManutencaoService;
 import jakarta.validation.Valid;
@@ -32,8 +34,9 @@ public class OrdemManutencaoController {
     }
 
     @GetMapping
-    public List<OrdemManutencaoResponse> listar(@RequestParam(required = false) StatusOrdem status) {
-        return service.listar(status);
+    public PageResponse<OrdemManutencaoResponse> listar(@RequestParam(required = false) StatusOrdem status,
+            @PageableDefault(sort = "criadoEm", direction = Sort.Direction.DESC) Pageable pageable) {
+        return service.listar(status, pageable);
     }
 
     @PostMapping
