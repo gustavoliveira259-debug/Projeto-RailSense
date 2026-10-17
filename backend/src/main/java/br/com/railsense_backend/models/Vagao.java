@@ -30,6 +30,10 @@ public class Vagao extends BaseEntity {
     @JoinColumn(name = "patio_linha_id")
     private PatioLinha patioLinha;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "trem_id")
+    private Trem trem;
+
     @Builder.Default
     private boolean ativo = true;
 }

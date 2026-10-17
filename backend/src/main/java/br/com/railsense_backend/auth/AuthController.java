@@ -1,14 +1,18 @@
 package br.com.railsense_backend.auth;
 
 import br.com.railsense_backend.models.Usuario;
+import br.com.railsense_backend.dto.request.AlterarSenhaRequest;
 import br.com.railsense_backend.enums.Papel;
+import br.com.railsense_backend.exception.RequisicaoInvalidaException;
 import br.com.railsense_backend.repository.UsuarioRepository;
+import br.com.railsense_backend.service.UsuarioService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,10 +35,13 @@ public class AuthController {
     private final SecurityContextRepository securityContextRepository;
     private final LoginAttemptService attempts;
     private final boolean registroPublicoHabilitado;
+    private final UsuarioService usuarioService;
 
     public AuthController(UsuarioRepository usuarios, PasswordEncoder passwordEncoder,
             SecurityContextRepository securityContextRepository, LoginAttemptService attempts,
-            @Value("${app.security.registration-enabled:true}") boolean registroPublicoHabilitado) {
+            @Value("${app.security.registration-enabled:true}") boolean registroPublicoHabilitado,
+            UsuarioService usuarioService) {
+        this.usuarioService = usuarioService;
         this.usuarios = usuarios;
         this.passwordEncoder = passwordEncoder;
         this.securityContextRepository = securityContextRepository;
@@ -107,6 +114,24 @@ public class AuthController {
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, httpRequest, httpResponse);
         return ResponseEntity.status(HttpStatus.CREATED).body(AuthenticatedUserResponse.from(usuario));
+    }
+
+    /** Troca da própria senha. Erros de senha atual contam para o mesmo limite do login. */
+    @PostMapping("/senha")
+    public ResponseEntity<?> alterarSenha(@Valid @RequestBody AlterarSenhaRequest request,
+            @AuthenticationPrincipal Long usuarioId) {
+        String attemptKey = "senha:" + usuarioId;
+        if (attempts.isBlocked(attemptKey)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(new ApiError("Tente novamente mais tarde."));
+        }
+        try {
+            usuarioService.alterarPropriaSenha(usuarioId, request.senhaAtual(), request.novaSenha());
+        } catch (RequisicaoInvalidaException e) {
+            attempts.recordFailure(attemptKey);
+            throw e;
+        }
+        attempts.clear(attemptKey);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/me")

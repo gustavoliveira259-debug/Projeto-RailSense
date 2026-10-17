@@ -1,17 +1,18 @@
 package br.com.railsense_backend.dto.response;
 
-import br.com.railsense_backend.models.Vagao;
+import br.com.railsense_backend.enums.StatusMonitoramento;
 
 public record VagaoResponse(
     Long id,
     String numeroUk,
     String tipo,
+    Long tremId,
+    String tremCodigo,
     Long patioLinhaId,
     String nomePatioLinha,
-    boolean ativo
-) {
-    public static VagaoResponse from(Vagao v) {
-        return new VagaoResponse(v.getId(), v.getNumeroUk(), v.getTipo(),
-            v.getPatioLinha().getId(), v.getPatioLinha().getNome(), v.isAtivo());
-    }
-}
+    boolean ativo,
+    int totalRolamentos,
+    int alertasAtivos,
+    int alertasCriticos,
+    StatusMonitoramento status
+) {}

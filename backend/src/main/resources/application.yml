@@ -58,3 +58,10 @@ app:
   gemini:
     api-key: ${GEMINI_API_KEY}
     model: ${GEMINI_MODEL:gemini-3.8-flash}
+  mqtt:
+    # Liga o consumo de leituras dos sensores (railsense/sensor/<tipo>).
+    enabled: ${MQTT_ENABLED:false}
+    url: ${MQTT_URL:tcp://localhost:1883}
+    topic: ${MQTT_TOPIC:railsense/sensor/+}
+    username: ${MQTT_USERNAME:}
+    password: ${MQTT_PASSWORD:}

@@ -5,7 +5,6 @@ import br.com.railsense_backend.dto.response.AlertaDetalheResponse;
 import br.com.railsense_backend.dto.response.AlertaResponse;
 import br.com.railsense_backend.dto.response.DecisaoAlertaResponse;
 import br.com.railsense_backend.enums.StatusAlerta;
-import br.com.railsense_backend.repository.AlertaRepository;
 import br.com.railsense_backend.service.AlertaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,21 +24,17 @@ import java.util.List;
 @RequestMapping("/api/alertas")
 public class AlertaController {
 
-    private final AlertaRepository alertas;
     private final AlertaService alertaService;
 
-    public AlertaController(AlertaRepository alertas, AlertaService alertaService) {
-        this.alertas = alertas;
+    public AlertaController(AlertaService alertaService) {
         this.alertaService = alertaService;
     }
 
+    /** Mais recentes primeiro. Filtros opcionais por status e por eixo. */
     @GetMapping
-    public List<AlertaResponse> listar(@RequestParam(required = false) StatusAlerta status) {
-        var lista = status != null ? alertas.findByStatus(status) : alertas.findAll();
-        return lista.stream()
-            .map(a -> new AlertaResponse(a.getId(), a.getNivel(), a.getStatus(), a.getScore(),
-                a.getEixo().getId(), a.getEixo().getIdentificadorUnico(), a.getCriadoEm()))
-            .toList();
+    public List<AlertaResponse> listar(@RequestParam(required = false) StatusAlerta status,
+            @RequestParam(required = false) Long eixoId) {
+        return alertaService.listar(status, eixoId);
     }
 
     @GetMapping("/{id}")
@@ -53,5 +48,11 @@ public class AlertaController {
             @Valid @RequestBody DecisaoAlertaRequest request,
             @AuthenticationPrincipal Long usuarioId) {
         return ResponseEntity.status(HttpStatus.CREATED).body(alertaService.decidir(id, usuarioId, request));
+    }
+
+    /** Encerra um alerta confirmado (vazamento tratado). */
+    @PostMapping("/{id}/fechar")
+    public AlertaResponse fechar(@PathVariable Long id) {
+        return alertaService.fechar(id);
     }
 }

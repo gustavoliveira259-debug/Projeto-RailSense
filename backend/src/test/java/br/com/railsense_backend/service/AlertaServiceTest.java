@@ -27,6 +27,7 @@ import br.com.railsense_backend.enums.NivelAlerta;
 import br.com.railsense_backend.enums.StatusAlerta;
 import br.com.railsense_backend.enums.TipoEvidencia;
 import br.com.railsense_backend.exception.RegraNegocioException;
+import br.com.railsense_backend.exception.RequisicaoInvalidaException;
 import br.com.railsense_backend.models.Alerta;
 import br.com.railsense_backend.models.Analise;
 import br.com.railsense_backend.models.DecisaoAlerta;
@@ -125,9 +126,39 @@ class AlertaServiceTest {
         when(usuarios.findById(7L)).thenReturn(Optional.of(Usuario.builder().build()));
         when(decisoes.save(any())).thenAnswer(i -> i.getArgument(0));
 
-        service.decidir(1L, 7L, new DecisaoAlertaRequest(DecisaoTipo.FALSO_POSITIVO, null));
+        service.decidir(1L, 7L, new DecisaoAlertaRequest(DecisaoTipo.FALSO_POSITIVO, "reflexo da lanterna"));
 
         assertThat(alerta.getStatus()).isEqualTo(StatusAlerta.FALSO_POSITIVO);
+    }
+
+    @Test
+    void falsoPositivoExigeMotivo() {
+        Alerta alerta = Alerta.builder().status(StatusAlerta.NOVO).build();
+        when(alertas.findByIdForUpdate(1L)).thenReturn(Optional.of(alerta));
+
+        assertThatThrownBy(() -> service.decidir(1L, 7L, new DecisaoAlertaRequest(DecisaoTipo.FALSO_POSITIVO, "  ")))
+            .isInstanceOf(RequisicaoInvalidaException.class);
+        verify(decisoes, never()).save(any(DecisaoAlerta.class));
+        assertThat(alerta.getStatus()).isEqualTo(StatusAlerta.NOVO);
+    }
+
+    @Test
+    void fecharAlertaConfirmado() {
+        Alerta alerta = Alerta.builder().status(StatusAlerta.CONFIRMADO).eixo(Eixo.builder().build()).build();
+        when(alertas.findByIdForUpdate(1L)).thenReturn(Optional.of(alerta));
+
+        service.fechar(1L);
+
+        assertThat(alerta.getStatus()).isEqualTo(StatusAlerta.FECHADO);
+    }
+
+    @Test
+    void naoFechaAlertaAindaNaoConfirmado() {
+        Alerta alerta = Alerta.builder().status(StatusAlerta.NOVO).build();
+        when(alertas.findByIdForUpdate(1L)).thenReturn(Optional.of(alerta));
+
+        assertThatThrownBy(() -> service.fechar(1L)).isInstanceOf(RegraNegocioException.class);
+        assertThat(alerta.getStatus()).isEqualTo(StatusAlerta.NOVO);
     }
 
     @Test

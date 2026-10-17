@@ -2,6 +2,7 @@ package br.com.railsense_backend.service;
 
 import br.com.railsense_backend.dto.request.DecisaoAlertaRequest;
 import br.com.railsense_backend.dto.response.AlertaDetalheResponse;
+import br.com.railsense_backend.dto.response.AlertaResponse;
 import br.com.railsense_backend.dto.response.DecisaoAlertaResponse;
 import br.com.railsense_backend.dto.response.EvidenciaResponse;
 import br.com.railsense_backend.enums.Classificacao;
@@ -11,6 +12,7 @@ import br.com.railsense_backend.enums.StatusAlerta;
 import br.com.railsense_backend.enums.TipoEvidencia;
 import br.com.railsense_backend.exception.AlertaNotFoundException;
 import br.com.railsense_backend.exception.RegraNegocioException;
+import br.com.railsense_backend.exception.RequisicaoInvalidaException;
 import br.com.railsense_backend.models.Alerta;
 import br.com.railsense_backend.models.Analise;
 import br.com.railsense_backend.models.DecisaoAlerta;
@@ -24,6 +26,7 @@ import br.com.railsense_backend.repository.UsuarioRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +76,30 @@ public class AlertaService {
     }
 
     @Transactional(readOnly = true)
+    public List<AlertaResponse> listar(StatusAlerta status, Long eixoId) {
+        List<Alerta> lista = eixoId != null ? alertas.findByEixoId(eixoId)
+            : status != null ? alertas.findByStatus(status)
+            : alertas.findAll();
+        return lista.stream()
+            .filter(a -> status == null || a.getStatus() == status)
+            .sorted(Comparator.comparing(Alerta::getCriadoEm, Comparator.nullsLast(Comparator.reverseOrder())))
+            .map(AlertaResponse::from)
+            .toList();
+    }
+
+    /** Fecha um alerta confirmado. Concluir a ordem de manutenção também fecha (OrdemManutencaoService). */
+    @Transactional
+    public AlertaResponse fechar(Long alertaId) {
+        Alerta alerta = alertas.findByIdForUpdate(alertaId).orElseThrow(() -> new AlertaNotFoundException(alertaId));
+        if (alerta.getStatus() != StatusAlerta.CONFIRMADO) {
+            throw new RegraNegocioException("Só é possível fechar alerta CONFIRMADO (status atual: "
+                + alerta.getStatus() + ").");
+        }
+        alerta.setStatus(StatusAlerta.FECHADO);
+        return AlertaResponse.from(alerta);
+    }
+
+    @Transactional(readOnly = true)
     public AlertaDetalheResponse detalhar(Long alertaId) {
         Alerta alerta = alertas.findById(alertaId).orElseThrow(() -> new AlertaNotFoundException(alertaId));
         Analise analise = alerta.getAnalise();
@@ -89,6 +116,10 @@ public class AlertaService {
         Alerta alerta = alertas.findByIdForUpdate(alertaId).orElseThrow(() -> new AlertaNotFoundException(alertaId));
         if (!STATUS_PENDENTES.contains(alerta.getStatus())) {
             throw new RegraNegocioException("Alerta " + alertaId + " já foi decidido (status " + alerta.getStatus() + ").");
+        }
+        // Descartar um alerta sem justificativa apagaria o motivo da auditoria.
+        if (request.decisao() == DecisaoTipo.FALSO_POSITIVO && (request.motivo() == null || request.motivo().isBlank())) {
+            throw new RequisicaoInvalidaException("Informe o motivo para marcar o alerta como falso positivo.");
         }
         Usuario usuario = usuarios.findById(usuarioId)
             .orElseThrow(() -> new RegraNegocioException("Usuário da sessão não existe mais."));

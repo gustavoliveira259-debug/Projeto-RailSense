@@ -19,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import br.com.railsense_backend.dto.request.CriarUsuarioRequest;
 import br.com.railsense_backend.enums.Papel;
 import br.com.railsense_backend.exception.RegraNegocioException;
+import br.com.railsense_backend.exception.RequisicaoInvalidaException;
 import br.com.railsense_backend.exception.UsuarioNotFoundException;
 import br.com.railsense_backend.models.Usuario;
 import br.com.railsense_backend.repository.UsuarioRepository;
@@ -91,6 +92,47 @@ class UsuarioServiceTest {
         service.alterarAtivo(2L, false, 1L);
 
         assertThat(alvo.isAtivo()).isFalse();
+    }
+
+    @Test
+    void adminRedefineSenhaDeOutroUsuario() {
+        Usuario alvo = Usuario.builder().hashSenha("ANTIGO").build();
+        when(usuarios.findById(2L)).thenReturn(Optional.of(alvo));
+        when(passwordEncoder.encode("nova-senha-longa")).thenReturn("NOVO");
+
+        service.redefinirSenha(2L, "nova-senha-longa", 1L);
+
+        assertThat(alvo.getHashSenha()).isEqualTo("NOVO");
+    }
+
+    @Test
+    void adminNaoRedefineAPropriaSenhaPorAqui() {
+        assertThatThrownBy(() -> service.redefinirSenha(1L, "nova-senha-longa", 1L))
+            .isInstanceOf(RegraNegocioException.class);
+    }
+
+    @Test
+    void trocaPropriaSenhaExigeSenhaAtualCorreta() {
+        Usuario eu = Usuario.builder().hashSenha("HASH").build();
+        when(usuarios.findById(3L)).thenReturn(Optional.of(eu));
+        when(passwordEncoder.matches("errada", "HASH")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.alterarPropriaSenha(3L, "errada", "nova-senha-longa"))
+            .isInstanceOf(RequisicaoInvalidaException.class);
+        verify(passwordEncoder, never()).encode(any());
+        assertThat(eu.getHashSenha()).isEqualTo("HASH");
+    }
+
+    @Test
+    void trocaPropriaSenha() {
+        Usuario eu = Usuario.builder().hashSenha("HASH").build();
+        when(usuarios.findById(3L)).thenReturn(Optional.of(eu));
+        when(passwordEncoder.matches("senha-atual-longa", "HASH")).thenReturn(true);
+        when(passwordEncoder.encode("nova-senha-longa")).thenReturn("NOVO");
+
+        service.alterarPropriaSenha(3L, "senha-atual-longa", "nova-senha-longa");
+
+        assertThat(eu.getHashSenha()).isEqualTo("NOVO");
     }
 
     @Test

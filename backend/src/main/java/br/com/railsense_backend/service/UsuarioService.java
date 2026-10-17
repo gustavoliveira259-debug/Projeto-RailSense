@@ -12,6 +12,7 @@ import br.com.railsense_backend.dto.request.CriarUsuarioRequest;
 import br.com.railsense_backend.dto.response.UsuarioResponse;
 import br.com.railsense_backend.enums.Papel;
 import br.com.railsense_backend.exception.RegraNegocioException;
+import br.com.railsense_backend.exception.RequisicaoInvalidaException;
 import br.com.railsense_backend.exception.UsuarioNotFoundException;
 import br.com.railsense_backend.models.Usuario;
 import br.com.railsense_backend.repository.UsuarioRepository;
@@ -63,6 +64,26 @@ public class UsuarioService {
         Usuario usuario = buscarOutroUsuario(usuarioId, adminId, "desativar a própria conta");
         usuario.setAtivo(ativo);
         return UsuarioResponse.from(usuario);
+    }
+
+    /** A própria senha muda em "Minha conta", que exige a senha atual. */
+    @Transactional
+    public UsuarioResponse redefinirSenha(Long usuarioId, String novaSenha, Long adminId) {
+        Usuario usuario = buscarOutroUsuario(usuarioId, adminId, "redefinir a própria senha por aqui");
+        usuario.setHashSenha(passwordEncoder.encode(novaSenha));
+        return UsuarioResponse.from(usuario);
+    }
+
+    @Transactional
+    public void alterarPropriaSenha(Long usuarioId, String senhaAtual, String novaSenha) {
+        Usuario usuario = usuarios.findById(usuarioId).orElseThrow(() -> new UsuarioNotFoundException(usuarioId));
+        if (!passwordEncoder.matches(senhaAtual, usuario.getHashSenha())) {
+            throw new RequisicaoInvalidaException("Senha atual incorreta.");
+        }
+        if (senhaAtual.equals(novaSenha)) {
+            throw new RequisicaoInvalidaException("A nova senha deve ser diferente da atual.");
+        }
+        usuario.setHashSenha(passwordEncoder.encode(novaSenha));
     }
 
     private Usuario buscarOutroUsuario(Long usuarioId, Long adminId, String acaoProibida) {

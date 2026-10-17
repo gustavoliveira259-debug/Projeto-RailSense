@@ -2,8 +2,11 @@ package br.com.railsense_backend.service;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,10 +19,13 @@ import br.com.railsense_backend.client.cloudinary.CloudinaryService;
 import br.com.railsense_backend.client.cloudinary.CloudinaryUploadResult;
 import br.com.railsense_backend.client.gemini.GeminiClient;
 import br.com.railsense_backend.dto.response.ImageUploadResponse;
+import br.com.railsense_backend.dto.response.ImagemResponse;
 import br.com.railsense_backend.exception.EixoNotFoundException;
+import br.com.railsense_backend.models.Alerta;
 import br.com.railsense_backend.models.Analise;
 import br.com.railsense_backend.models.Eixo;
 import br.com.railsense_backend.models.Imagem;
+import br.com.railsense_backend.repository.AlertaRepository;
 import br.com.railsense_backend.repository.AnaliseRepository;
 import br.com.railsense_backend.repository.EixoRepository;
 import br.com.railsense_backend.repository.ImagemRepository;
@@ -36,11 +42,13 @@ public class ImageService {
     private final ImageBytesFetcher bytesFetcher;
     private final AlertaService alertaService;
     private final ImageFileValidator fileValidator;
+    private final AlertaRepository alertas;
 
     public ImageService(ImagemRepository imagens, AnaliseRepository analises, EixoRepository eixos,
             CloudinaryService cloudinaryService, GeminiClient geminiClient,
             GeminiResponseParser responseParser, ImageBytesFetcher bytesFetcher,
-            AlertaService alertaService, ImageFileValidator fileValidator) {
+            AlertaService alertaService, ImageFileValidator fileValidator, AlertaRepository alertas) {
+        this.alertas = alertas;
         this.imagens = imagens;
         this.analises = analises;
         this.eixos = eixos;
@@ -123,6 +131,37 @@ public class ImageService {
             throw new br.com.railsense_backend.exception.GeminiAnalysisException(
                     "Falha ao ler bytes da imagem atual", e);
         }
+    }
+
+    /** Imagens do eixo (mais recentes primeiro) com o resultado da comparação, quando houver. */
+    @Transactional(readOnly = true)
+    public List<ImagemResponse> listarDoEixo(Long eixoId) {
+        if (!eixos.existsById(eixoId)) {
+            throw new EixoNotFoundException(eixoId);
+        }
+        List<Imagem> lista = imagens.findByEixoIdOrderByTimestampCapturaDesc(eixoId);
+        Map<Long, Analise> analisePorImagem = analises.findByImagemAtualIdIn(lista.stream().map(Imagem::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(a -> a.getImagemAtual().getId(), Function.identity(), (a, b) -> b));
+        Map<Long, Long> alertaPorAnalise = alertas.findByAnaliseIdIn(analisePorImagem.values().stream()
+                        .map(Analise::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(a -> a.getAnalise().getId(), Alerta::getId, (a, b) -> b));
+        return lista.stream().map(i -> {
+            Analise a = analisePorImagem.get(i.getId());
+            return new ImagemResponse(i.getId(), i.getUrlArquivo(), i.getTimestampCaptura(),
+                    i.isEhBaseline(), i.isBaselineAtiva(),
+                    a != null ? a.getClassificacao() : null,
+                    a != null ? a.getScoreDiferenca() : null,
+                    a != null ? regioes(a) : List.of(),
+                    a != null ? alertaPorAnalise.get(a.getId()) : null);
+        }).toList();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> regioes(Analise analise) {
+        Object regioes = analise.getRegioesAnomalia() != null ? analise.getRegioesAnomalia().get("regioes") : null;
+        return regioes instanceof List<?> lista ? (List<String>) lista : List.of();
     }
 
     @Transactional

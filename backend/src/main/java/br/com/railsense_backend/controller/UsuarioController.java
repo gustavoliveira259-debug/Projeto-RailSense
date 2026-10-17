@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import br.com.railsense_backend.dto.request.AtivoRequest;
 import br.com.railsense_backend.dto.request.CriarUsuarioRequest;
 import br.com.railsense_backend.dto.request.PapelRequest;
+import br.com.railsense_backend.dto.request.RedefinirSenhaRequest;
 import br.com.railsense_backend.dto.response.UsuarioResponse;
 import br.com.railsense_backend.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -51,5 +52,11 @@ public class UsuarioController {
     public UsuarioResponse alterarAtivo(@PathVariable Long id, @Valid @RequestBody AtivoRequest request,
             @AuthenticationPrincipal Long adminId) {
         return service.alterarAtivo(id, request.ativo(), adminId);
+    }
+
+    @PatchMapping("/{id}/senha")
+    public UsuarioResponse redefinirSenha(@PathVariable Long id, @Valid @RequestBody RedefinirSenhaRequest request,
+            @AuthenticationPrincipal Long adminId) {
+        return service.redefinirSenha(id, request.password(), adminId);
     }
 }

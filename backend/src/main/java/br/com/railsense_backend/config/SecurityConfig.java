@@ -58,13 +58,20 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
-                // GERENTE: cria os espaços de monitoramento (pátios/linhas, vagões, eixos).
-                .requestMatchers(HttpMethod.POST, "/api/patios-linhas", "/api/vagoes", "/api/eixos")
+                // Qualquer usuário logado troca a própria senha (exige a senha atual).
+                .requestMatchers(HttpMethod.POST, "/api/auth/senha").authenticated()
+                // GERENTE e TI: estrutura monitorada (trens, pátios/linhas, vagões, eixos, sensores).
+                .requestMatchers(HttpMethod.POST, "/api/trens", "/api/patios-linhas", "/api/vagoes", "/api/eixos",
+                        "/api/sensores")
                     .hasAnyRole("GERENTE", "ADMIN")
-                // ENGENHEIRO: monitoramento (imagens, baseline, decisão sobre alertas).
-                .requestMatchers(HttpMethod.POST, "/api/imagens", "/api/alertas/*/decisao")
-                    .hasAnyRole("ENGENHEIRO", "ADMIN")
-                .requestMatchers(HttpMethod.PATCH, "/api/imagens/*/baseline").hasAnyRole("ENGENHEIRO", "ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/trens/*/ativo", "/api/vagoes/*/ativo", "/api/eixos/*/ativo",
+                        "/api/sensores/*/ativo")
+                    .hasAnyRole("GERENTE", "ADMIN")
+                // ENGENHEIRO e GERENTE: monitoramento (imagens, baseline, decisão e fechamento de alertas).
+                .requestMatchers(HttpMethod.POST, "/api/imagens", "/api/alertas/*/decisao", "/api/alertas/*/fechar")
+                    .hasAnyRole("ENGENHEIRO", "GERENTE", "ADMIN")
+                .requestMatchers(HttpMethod.PATCH, "/api/imagens/*/baseline")
+                    .hasAnyRole("ENGENHEIRO", "GERENTE", "ADMIN")
                 // ADMIN: gestão de usuários, inclusive a listagem.
                 .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
                 // Consulta liberada a qualquer usuário logado (alertas, histórico, ordens...).
@@ -85,7 +92,8 @@ public class SecurityConfig {
                     response.getWriter().write("{\"message\":\"Acesso negado para o seu papel ou sessão.\"}");
                 }))
             .logout(logout -> logout
-                .logoutUrl("/logout")
+                // Dentro de /api: o proxy do Vite e o nginx só encaminham esse prefixo.
+                .logoutUrl("/api/auth/logout")
                 .deleteCookies("RAILSENSE_SESSION")
                 .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)))
             .httpBasic(httpBasic -> httpBasic.disable())
@@ -118,8 +126,6 @@ public class SecurityConfig {
 
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);
-        // Logout fica fora de /api (filtro padrão do Spring Security), mas também é chamado pela SPA.
-        source.registerCorsConfiguration("/logout", configuration);
         return source;
     }
 }
