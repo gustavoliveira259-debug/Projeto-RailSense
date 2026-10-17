@@ -9,6 +9,15 @@ spring:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:railsense_db}
     username: ${POSTGRES_USER:admin}
     password: ${POSTGRES_PASSWORD:12345678}
+    hikari:
+      # O pooler do Supabase (plano gratuito) aceita poucas conexões; o volume aqui é de testes.
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        max-page-size: 100
 
   jpa:
     hibernate:
@@ -28,6 +37,8 @@ spring:
       max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:11MB}
 
 server:
+  # O Render define a porta pela variável PORT.
+  port: ${PORT:8080}
   forward-headers-strategy: framework
   servlet:
     session:
@@ -55,6 +66,9 @@ app:
     name: ${ADMIN_NAME:Administrador RailSense}
   cloudinary:
     url: ${CLOUDINARY_URL}
+  alertas:
+    # Score (0-1) a partir do qual o nível do alerta sobe um degrau. Ver ImageAnalysisPrompt.
+    limiar-nivel-alto: ${ALERTA_LIMIAR_NIVEL_ALTO:0.6}
   gemini:
     api-key: ${GEMINI_API_KEY}
     model: ${GEMINI_MODEL:gemini-3.8-flash}
