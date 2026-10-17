@@ -1,87 +1,60 @@
-import { useEffect, useState } from 'react'
-import { Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom'
-import Dashboard from './pages/Dashboard'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { RequireAuth } from './auth/RequireAuth'
+import { inicioDoPerfil, useAuth } from './auth/useAuth'
+import { AppShell } from './components/AppShell'
+import { Carregando } from './components/ui'
+import Alertas from './pages/Alertas'
+import Conta from './pages/Conta'
 import Login from './pages/Login'
-import Register from './pages/Register'
-import TrainDetails from './pages/TrainDetails'
-import { demoTrains } from './data/trains'
-import { getCurrentUser, logout, type AuthenticatedUser } from './services/auth'
+import RolamentoDetalhe from './pages/RolamentoDetalhe'
+import TremDetalhe from './pages/TremDetalhe'
+import Trens from './pages/Trens'
+import VagaoDetalhe from './pages/VagaoDetalhe'
+import Estrutura from './pages/ti/Estrutura'
+import Usuarios from './pages/ti/Usuarios'
 
-type AuthScreensProps = {
-  user: AuthenticatedUser | null
-  onAuthenticated: (user: AuthenticatedUser) => void
+/** "/" e rotas desconhecidas: TI vai para usuários, os demais para trens. */
+function Inicio() {
+  const { usuario, verificando } = useAuth()
+  if (verificando) return <Carregando telaCheia />
+  return <Navigate to={usuario ? inicioDoPerfil(usuario.papel) : '/login'} replace />
 }
 
-/** Tela de login: redireciona para o dashboard se já houver sessão ativa. */
-function LoginRoute({ user, onAuthenticated }: AuthScreensProps) {
-  const navigate = useNavigate()
-  if (user) return <Navigate to="/dashboard" replace />
-  return <Login onAuthenticated={onAuthenticated} onRegister={() => navigate('/register')} />
-}
-
-/** Tela de registro: redireciona para o dashboard se já houver sessão ativa. */
-function RegisterRoute({ user, onAuthenticated }: AuthScreensProps) {
-  const navigate = useNavigate()
-  if (user) return <Navigate to="/dashboard" replace />
-  return <Register onAuthenticated={onAuthenticated} onBackToLogin={() => navigate('/login')} />
-}
-
-/** Busca o trem pelo id da URL e entrega para a tela de detalhes. */
-function TrainDetailsRoute() {
-  const { trainId } = useParams<{ trainId: string }>()
-  const navigate = useNavigate()
-  const train = demoTrains.find((candidate) => candidate.id === trainId)
-
-  if (!train) {
-    return <Navigate to="/dashboard" replace />
-  }
-
-  return <TrainDetails train={train} onBack={() => navigate('/dashboard')} />
-}
-
-function App() {
-  const [user, setUser] = useState<AuthenticatedUser | null>(null)
-  const [checkingSession, setCheckingSession] = useState(true)
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    getCurrentUser()
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setCheckingSession(false))
-  }, [])
-
-  /**
-   * Encerra a sessão do usuário.
-   *
-   * O estado local é limpo mesmo que a chamada ao backend falhe, garantindo
-   * que a interface sempre volte para a tela de login.
-   */
-  async function handleLogout() {
-    await logout()
-    setUser(null)
-    navigate('/login', { replace: true })
-  }
-
-  if (checkingSession) {
-    return null
-  }
-
+export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginRoute user={user} onAuthenticated={setUser} />} />
-      <Route path="/register" element={<RegisterRoute user={user} onAuthenticated={setUser} />} />
+      <Route path="/login" element={<Login />} />
       <Route
-        path="/dashboard"
-        element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />}
-      />
-      <Route
-        path="/trains/:trainId"
-        element={user ? <TrainDetailsRoute /> : <Navigate to="/login" replace />}
-      />
-      <Route path="*" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
+        element={
+          <RequireAuth>
+            <AppShell />
+          </RequireAuth>
+        }
+      >
+        <Route path="/trens" element={<Trens />} />
+        <Route path="/trens/:id" element={<TremDetalhe />} />
+        <Route path="/vagoes/:id" element={<VagaoDetalhe />} />
+        <Route path="/rolamentos/:id" element={<RolamentoDetalhe />} />
+        <Route path="/alertas" element={<Alertas />} />
+        <Route path="/conta" element={<Conta />} />
+        <Route
+          path="/ti/usuarios"
+          element={
+            <RequireAuth papeis={['ADMIN']}>
+              <Usuarios />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ti/estrutura"
+          element={
+            <RequireAuth papeis={['ADMIN']}>
+              <Estrutura />
+            </RequireAuth>
+          }
+        />
+      </Route>
+      <Route path="*" element={<Inicio />} />
     </Routes>
   )
 }
-
-export default App

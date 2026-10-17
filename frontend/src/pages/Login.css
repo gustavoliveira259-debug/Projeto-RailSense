@@ -2,7 +2,8 @@
   Variáveis visuais locais da tela de login.
   Nenhuma dessas informações é segredo; são apenas cores da interface.
 */
-:root {
+/* Escopo: tudo abaixo vale só dentro de .login-page. */
+.login-page {
   --navy: #071d4d;
   --text: #16233a;
   --muted: #8a9098;
@@ -10,29 +11,13 @@
   --danger: #a43f39;
 }
 
-/* Remove diferenças padrão do navegador e define a fonte da tela. */
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-  color: var(--text);
-}
-
-button,
-input {
-  font: inherit;
-}
-
 /*
   Container da página inteira.
   position: relative permite colocar a imagem decorativa atrás do cartão.
 */
 .login-page {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
   position: relative;
   min-height: 100vh;
   display: grid;
@@ -109,7 +94,7 @@ input {
 }
 
 /* Formulário com espaçamento consistente entre os campos. */
-form {
+.login-page form {
   display: grid;
   gap: 20px;
 }
@@ -156,6 +141,16 @@ form {
 
 .input-icon {
   margin-left: 16px;
+}
+
+.login-page button,
+.login-page input {
+  font: inherit;
+}
+
+.login-page button,
+.login-page input {
+  font: inherit;
 }
 
 .input-wrapper input {

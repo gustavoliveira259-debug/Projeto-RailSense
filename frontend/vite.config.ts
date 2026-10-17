@@ -6,12 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // Toda a API, inclusive o logout (/api/auth/logout), fica sob /api.
       '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
-      // Endpoint padrão de logout do Spring Security (fora do prefixo /api).
-      '/logout': {
         target: 'http://localhost:8080',
         changeOrigin: true,
       },

@@ -2,8 +2,10 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import logo from '../assets/Logo.png'
 import backgroundImage from '../assets/fundo-do-login.jpg'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import './Login.css'
-import { login, type AuthenticatedUser } from '../services/auth'
+import { ApiError } from '../api/http'
+import { inicioDoPerfil, useAuth } from '../auth/useAuth'
 
 /**
  * Ícone de envelope usado no campo de e-mail.
@@ -49,12 +51,12 @@ function EyeIcon({ visible }: { visible: boolean }) {
   )
 }
 
-type LoginProps = {
-  onAuthenticated: (user: AuthenticatedUser) => void
-  onRegister: () => void
-}
+export default function Login() {
+  const { usuario, verificando, entrar } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const destino = (location.state as { de?: string } | null)?.de
 
-export default function Login({ onAuthenticated, onRegister }: LoginProps) {
   // Os valores ficam somente no estado temporário do formulário.
   // Não salve senha, token ou sessão no localStorage.
   const [email, setEmail] = useState('')
@@ -82,16 +84,24 @@ export default function Login({ onAuthenticated, onRegister }: LoginProps) {
 
     try {
       setIsSubmitting(true)
-      const user = await login(email.trim(), password)
+      const user = await entrar(email.trim(), password)
       setPassword('')
-      onAuthenticated(user)
-    } catch {
+      // Volta para a página pedida antes do login, se ela existir; senão, o início do perfil.
+      navigate(destino && destino !== '/login' ? destino : inicioDoPerfil(user.papel), { replace: true })
+    } catch (e) {
       // A resposta é deliberadamente genérica para não revelar se um e-mail existe.
-      setError('E-mail ou senha inválidos.')
-    } finally {
+      // Só o bloqueio por excesso de tentativas tem mensagem própria.
+      setError(
+        e instanceof ApiError && e.status === 429
+          ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
+          : 'E-mail ou senha inválidos.',
+      )
       setIsSubmitting(false)
     }
   }
+
+  if (verificando) return null
+  if (usuario && !isSubmitting) return <Navigate to={inicioDoPerfil(usuario.papel)} replace />
 
   return (
     <main className="login-page">
@@ -170,8 +180,7 @@ export default function Login({ onAuthenticated, onRegister }: LoginProps) {
         </form>
 
         <p className="account-action">
-          Ainda não possui acesso?{' '}
-          <button type="button" onClick={onRegister}>Criar conta</button>
+          Ainda não possui acesso? Procure a equipe de TI.
         </p>
 
         <p className="security-note">
