@@ -58,20 +58,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
-                // GERENTE: cria os espaços de monitoramento (pátios/linhas, vagões, eixos).
-                .requestMatchers(HttpMethod.POST, "/api/patios-linhas", "/api/vagoes", "/api/eixos")
-                    .hasAnyRole("GERENTE", "ADMIN")
-                // ENGENHEIRO: monitoramento (imagens, baseline, decisão sobre alertas).
-                .requestMatchers(HttpMethod.POST, "/api/imagens", "/api/alertas/*/decisao")
-                    .hasAnyRole("ENGENHEIRO", "ADMIN")
-                .requestMatchers(HttpMethod.PATCH, "/api/imagens/*/baseline").hasAnyRole("ENGENHEIRO", "ADMIN")
-                // ADMIN: gestão de usuários, inclusive a listagem.
+                // Sessão do próprio usuário (/me, troca de senha): qualquer papel.
+                .requestMatchers("/api/auth/**").authenticated()
+                // ADMIN: só gestão de contas (criar, editar, papel, senha, ativar/desativar).
                 .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
-                // Consulta liberada a qualquer usuário logado (alertas, histórico, ordens...).
-                .requestMatchers(HttpMethod.GET, "/api/**").authenticated()
-                // ADMIN: manutenção (POST/PATCH em /api/ordens) e, por padrão seguro, qualquer
-                // escrita nova em /api que ainda não tenha regra acima.
-                .requestMatchers("/api/**").hasRole("ADMIN")
+                // ENGENHEIRO: todo o monitoramento (cadastros, imagens, alertas, ordens).
+                .requestMatchers("/api/**").hasRole("ENGENHEIRO")
                 .anyRequest().authenticated())
             .addFilterBefore(new SessaoAtualizadaFilter(usuarios, securityContextRepository),
                 AuthorizationFilter.class)
@@ -112,7 +104,7 @@ public class SecurityConfig {
             .map(String::trim)
             .filter(origin -> !origin.isEmpty())
             .toList());
-        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Content-Type", "X-XSRF-TOKEN"));
         configuration.setAllowCredentials(true);
 

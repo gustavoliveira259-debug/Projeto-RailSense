@@ -1,8 +1,10 @@
 package br.com.railsense_backend.auth;
 
+import br.com.railsense_backend.dto.request.AlterarSenhaRequest;
 import br.com.railsense_backend.models.Usuario;
 import br.com.railsense_backend.enums.Papel;
 import br.com.railsense_backend.repository.UsuarioRepository;
+import br.com.railsense_backend.service.UsuarioService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -15,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,15 +33,18 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final SecurityContextRepository securityContextRepository;
     private final LoginAttemptService attempts;
+    private final UsuarioService usuarioService;
     private final boolean registroPublicoHabilitado;
 
     public AuthController(UsuarioRepository usuarios, PasswordEncoder passwordEncoder,
             SecurityContextRepository securityContextRepository, LoginAttemptService attempts,
+            UsuarioService usuarioService,
             @Value("${app.security.registration-enabled:true}") boolean registroPublicoHabilitado) {
         this.usuarios = usuarios;
         this.passwordEncoder = passwordEncoder;
         this.securityContextRepository = securityContextRepository;
         this.attempts = attempts;
+        this.usuarioService = usuarioService;
         this.registroPublicoHabilitado = registroPublicoHabilitado;
     }
 
@@ -115,6 +121,13 @@ public class AuthController {
         return usuarios.findById(usuarioId).filter(Usuario::isAtivo)
             .<ResponseEntity<?>>map(usuario -> ResponseEntity.ok(AuthenticatedUserResponse.from(usuario)))
             .orElseGet(() -> ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError("Sessão inválida.")));
+    }
+
+    @PatchMapping("/senha")
+    public ResponseEntity<Void> alterarSenha(@Valid @RequestBody AlterarSenhaRequest request,
+            org.springframework.security.core.Authentication authentication) {
+        usuarioService.alterarPropriaSenha((Long) authentication.getPrincipal(), request);
+        return ResponseEntity.noContent().build();
     }
 
     private String clientAddress(HttpServletRequest request) {

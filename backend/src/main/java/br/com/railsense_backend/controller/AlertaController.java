@@ -6,9 +6,11 @@ import br.com.railsense_backend.dto.response.AlertaResponse;
 import br.com.railsense_backend.dto.response.DecisaoAlertaResponse;
 import br.com.railsense_backend.dto.response.PageResponse;
 import br.com.railsense_backend.enums.StatusAlerta;
+import br.com.railsense_backend.models.Alerta;
 import br.com.railsense_backend.repository.AlertaRepository;
 import br.com.railsense_backend.service.AlertaService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -38,8 +40,16 @@ public class AlertaController {
 
     @GetMapping
     public PageResponse<AlertaResponse> listar(@RequestParam(required = false) StatusAlerta status,
+            @RequestParam(required = false) Long eixoId,
             @PageableDefault(sort = "criadoEm", direction = Sort.Direction.DESC) Pageable pageable) {
-        var pagina = status != null ? alertas.findByStatus(status, pageable) : alertas.findAll(pageable);
+        Page<Alerta> pagina;
+        if (eixoId != null) {
+            pagina = status != null
+                ? alertas.findByEixoIdAndStatus(eixoId, status, pageable)
+                : alertas.findByEixoId(eixoId, pageable);
+        } else {
+            pagina = status != null ? alertas.findByStatus(status, pageable) : alertas.findAll(pageable);
+        }
         return PageResponse.of(pagina, a -> new AlertaResponse(a.getId(), a.getNivel(), a.getStatus(), a.getScore(),
             a.getEixo().getId(), a.getEixo().getIdentificadorUnico(), a.getCriadoEm()));
     }

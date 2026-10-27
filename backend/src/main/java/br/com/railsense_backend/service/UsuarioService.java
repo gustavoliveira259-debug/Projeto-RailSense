@@ -9,6 +9,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.railsense_backend.dto.request.AlterarSenhaRequest;
+import br.com.railsense_backend.dto.request.AtualizarUsuarioRequest;
 import br.com.railsense_backend.dto.request.CriarUsuarioRequest;
 import br.com.railsense_backend.dto.response.PageResponse;
 import br.com.railsense_backend.dto.response.UsuarioResponse;
@@ -20,6 +22,8 @@ import br.com.railsense_backend.repository.UsuarioRepository;
 
 @Service
 public class UsuarioService {
+
+    private static final String EMAIL_EM_USO = "Já existe um usuário com esse e-mail.";
 
     private final UsuarioRepository usuarios;
     private final PasswordEncoder passwordEncoder;
@@ -40,7 +44,7 @@ public class UsuarioService {
     public UsuarioResponse criar(CriarUsuarioRequest request) {
         String email = request.email().trim().toLowerCase(Locale.ROOT);
         if (usuarios.findByEmailIgnoreCase(email).isPresent()) {
-            throw new RegraNegocioException("Já existe um usuário com esse e-mail.");
+            throw new RegraNegocioException(EMAIL_EM_USO);
         }
         Usuario usuario = usuarios.save(Usuario.builder()
             .nome(request.nome().trim())
@@ -69,10 +73,44 @@ public class UsuarioService {
         return UsuarioResponse.from(usuario);
     }
 
+    @Transactional
+    public UsuarioResponse atualizarDados(Long usuarioId, AtualizarUsuarioRequest request) {
+        Usuario usuario = buscar(usuarioId);
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        usuarios.findByEmailIgnoreCase(email)
+            .filter(outro -> !outro.getId().equals(usuarioId))
+            .ifPresent(outro -> {
+                throw new RegraNegocioException(EMAIL_EM_USO);
+            });
+        usuario.setNome(request.nome().trim());
+        usuario.setEmail(email);
+        return UsuarioResponse.from(usuario);
+    }
+
+    /** Redefinição pelo ADMIN (usuário esqueceu a senha); não pede a senha antiga. */
+    @Transactional
+    public void redefinirSenha(Long usuarioId, String novaSenha) {
+        buscar(usuarioId).setHashSenha(passwordEncoder.encode(novaSenha));
+    }
+
+    /** Troca feita pelo próprio usuário logado, confirmando a senha atual. */
+    @Transactional
+    public void alterarPropriaSenha(Long usuarioId, AlterarSenhaRequest request) {
+        Usuario usuario = buscar(usuarioId);
+        if (!passwordEncoder.matches(request.senhaAtual(), usuario.getHashSenha())) {
+            throw new RegraNegocioException("Senha atual incorreta.");
+        }
+        usuario.setHashSenha(passwordEncoder.encode(request.novaSenha()));
+    }
+
+    private Usuario buscar(Long usuarioId) {
+        return usuarios.findById(usuarioId).orElseThrow(() -> new UsuarioNotFoundException(usuarioId));
+    }
+
     private Usuario buscarOutroUsuario(Long usuarioId, Long adminId, String acaoProibida) {
         if (usuarioId.equals(adminId)) {
             throw new RegraNegocioException("Você não pode " + acaoProibida + ".");
         }
-        return usuarios.findById(usuarioId).orElseThrow(() -> new UsuarioNotFoundException(usuarioId));
+        return buscar(usuarioId);
     }
 }

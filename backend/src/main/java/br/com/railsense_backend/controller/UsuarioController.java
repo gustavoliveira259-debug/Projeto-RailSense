@@ -8,13 +8,16 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.com.railsense_backend.dto.request.AtivoRequest;
+import br.com.railsense_backend.dto.request.AtualizarUsuarioRequest;
 import br.com.railsense_backend.dto.request.CriarUsuarioRequest;
 import br.com.railsense_backend.dto.request.PapelRequest;
+import br.com.railsense_backend.dto.request.SenhaRequest;
 import br.com.railsense_backend.dto.response.PageResponse;
 import br.com.railsense_backend.dto.response.UsuarioResponse;
 import br.com.railsense_backend.service.UsuarioService;
@@ -39,6 +42,17 @@ public class UsuarioController {
     @PostMapping
     public ResponseEntity<UsuarioResponse> criar(@Valid @RequestBody CriarUsuarioRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.criar(request));
+    }
+
+    @PutMapping("/{id}")
+    public UsuarioResponse atualizar(@PathVariable Long id, @Valid @RequestBody AtualizarUsuarioRequest request) {
+        return service.atualizarDados(id, request);
+    }
+
+    @PatchMapping("/{id}/senha")
+    public ResponseEntity<Void> redefinirSenha(@PathVariable Long id, @Valid @RequestBody SenhaRequest request) {
+        service.redefinirSenha(id, request.password());
+        return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/papel")

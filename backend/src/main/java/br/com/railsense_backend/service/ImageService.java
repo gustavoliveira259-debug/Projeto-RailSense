@@ -17,6 +17,7 @@ import br.com.railsense_backend.client.cloudinary.CloudinaryUploadResult;
 import br.com.railsense_backend.client.gemini.GeminiClient;
 import br.com.railsense_backend.dto.response.ImageUploadResponse;
 import br.com.railsense_backend.exception.EixoNotFoundException;
+import br.com.railsense_backend.exception.RegraNegocioException;
 import br.com.railsense_backend.models.Analise;
 import br.com.railsense_backend.models.Eixo;
 import br.com.railsense_backend.models.Imagem;
@@ -56,6 +57,9 @@ public class ImageService {
     public ImageUploadResponse uploadImagem(MultipartFile file, Long eixoId) {
         String mimeType = fileValidator.validar(file);
         Eixo eixo = eixos.findById(eixoId).orElseThrow(() -> new EixoNotFoundException(eixoId));
+        if (!eixo.isAtivo()) {
+            throw new RegraNegocioException("O eixo " + eixoId + " está desativado e não recebe imagens.");
+        }
 
         CloudinaryUploadResult uploadResult = cloudinaryService.upload(file);
         removerDoCloudinarySeReverter(uploadResult.publicId());
@@ -133,7 +137,9 @@ public class ImageService {
         imagens.findByEixoIdAndBaselineAtivaTrue(imagem.getEixo().getId())
                 .ifPresent(antiga -> {
                     antiga.setBaselineAtiva(false);
-                    imagens.save(antiga);
+                    // Grava já: no flush do commit, o UPDATE da nova baseline (carregada antes)
+                    // sairia primeiro e violaria idx_baseline_ativa_unica.
+                    imagens.saveAndFlush(antiga);
                 });
 
         imagem.setEhBaseline(true);

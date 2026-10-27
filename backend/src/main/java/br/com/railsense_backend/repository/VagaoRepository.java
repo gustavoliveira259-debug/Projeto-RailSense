@@ -8,7 +8,11 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import br.com.railsense_backend.models.Vagao;
 
 public interface VagaoRepository extends JpaRepository<Vagao, Long> {
+
     @Override
     @EntityGraph(attributePaths = "patioLinha")
     Page<Vagao> findAll(Pageable pageable);
+
+    @EntityGraph(attributePaths = "patioLinha")
+    Page<Vagao> findByPatioLinhaId(Long patioLinhaId, Pageable pageable);
 }

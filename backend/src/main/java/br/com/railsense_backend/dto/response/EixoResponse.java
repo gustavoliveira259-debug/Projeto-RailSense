@@ -6,11 +6,13 @@ public record EixoResponse(
     Long id,
     int posicao,
     String identificadorUnico,
+    Long vagaoId,
     String numeroUk,
-    String nomePatioLinha
+    String nomePatioLinha,
+    boolean ativo
 ) {
     public static EixoResponse from(Eixo e) {
         return new EixoResponse(e.getId(), e.getPosicao(), e.getIdentificadorUnico(),
-            e.getVagao().getNumeroUk(), e.getVagao().getPatioLinha().getNome());
+            e.getVagao().getId(), e.getVagao().getNumeroUk(), e.getVagao().getPatioLinha().getNome(), e.isAtivo());
     }
 }
