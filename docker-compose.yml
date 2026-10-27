@@ -37,7 +37,16 @@ services:
     ports:
       - "8080:8080"
 
-  # O broker MQTT fica em docker-compose.simulation.yml (só local, fora do deploy).
+  broker:
+    image: eclipse-mosquitto:2
+    container_name: monitoramento-broker
+    restart: always
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+
   frontend:
     build:
       context: ./frontend
@@ -50,4 +59,5 @@ services:
 
 volumes:
   postgres_data:
+  mosquitto_data:
 
