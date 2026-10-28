@@ -2,6 +2,7 @@ package br.com.railsense_backend.service;
 
 import br.com.railsense_backend.dto.request.DecisaoAlertaRequest;
 import br.com.railsense_backend.dto.response.AlertaDetalheResponse;
+import br.com.railsense_backend.dto.response.AnaliseResponse;
 import br.com.railsense_backend.dto.response.DecisaoAlertaResponse;
 import br.com.railsense_backend.dto.response.EvidenciaResponse;
 import br.com.railsense_backend.enums.Classificacao;
@@ -26,7 +27,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -86,7 +86,7 @@ public class AlertaService {
         return new AlertaDetalheResponse(alerta.getId(), alerta.getNivel(), alerta.getStatus(), alerta.getScore(),
             alerta.getEixo().getId(), alerta.getEixo().getIdentificadorUnico(), alerta.getCriadoEm(),
             analise != null ? analise.getClassificacao() : null,
-            regioes(analise),
+            AnaliseResponse.regioes(analise),
             evidencias.findByAlertaId(alertaId).stream().map(EvidenciaResponse::from).toList(),
             decisoes.findByAlertaIdOrderByCriadoEmAsc(alertaId).stream().map(DecisaoAlertaResponse::from).toList());
     }
@@ -134,14 +134,5 @@ public class AlertaService {
 
     private static EvidenciaAlerta evidencia(Alerta alerta, Imagem imagem, TipoEvidencia tipo) {
         return EvidenciaAlerta.builder().alerta(alerta).imagem(imagem).tipo(tipo).build();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<String> regioes(Analise analise) {
-        if (analise == null || analise.getRegioesAnomalia() == null) {
-            return List.of();
-        }
-        Object regioes = ((Map<String, Object>) analise.getRegioesAnomalia()).get("regioes");
-        return regioes instanceof List<?> lista ? (List<String>) lista : List.of();
     }
 }

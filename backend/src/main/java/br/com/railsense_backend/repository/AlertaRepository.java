@@ -21,6 +21,12 @@ public interface AlertaRepository extends JpaRepository<Alerta, Long> {
     @EntityGraph(attributePaths = "eixo")
     Page<Alerta> findByStatus(StatusAlerta status, Pageable pageable);
 
+    @EntityGraph(attributePaths = "eixo")
+    Page<Alerta> findByEixoId(Long eixoId, Pageable pageable);
+
+    @EntityGraph(attributePaths = "eixo")
+    Page<Alerta> findByEixoIdAndStatus(Long eixoId, StatusAlerta status, Pageable pageable);
+
     /** Trava a linha do alerta até o fim da transação, evitando duas decisões simultâneas. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Alerta a where a.id = :id")

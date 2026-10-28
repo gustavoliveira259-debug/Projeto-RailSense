@@ -3,6 +3,7 @@ package br.com.railsense_backend.exception;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +33,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RegraNegocioException.class)
     public ResponseEntity<ApiError> handleRegraNegocio(RegraNegocioException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(new ApiError(e.getMessage()));
+    }
+
+    /** Restrição do banco violada, ex.: numero_uk ou identificador_unico repetido; sem isto seria 500. */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleIntegridade(DataIntegrityViolationException e) {
+        log.info("Violação de integridade: {}", e.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ApiError("Registro duplicado ou em conflito com dados existentes."));
     }
 
     @ExceptionHandler(ArquivoInvalidoException.class)
