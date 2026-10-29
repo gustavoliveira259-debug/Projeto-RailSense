@@ -1,7 +1,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 
-#define ssid "Wokwi-GUEST"
+#define ssid "linksys"
 #define password ""
 
 #define pot 14
@@ -9,7 +9,7 @@
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-const char* mqtt_server = "192.168.56.1";
+const char* mqtt_server = "10.110.12.99";
 const int mqtt_port = 1883;
 
 // Acima deste valor o ESP pede uma foto ao celular (topico railsense/camera/capturar).
