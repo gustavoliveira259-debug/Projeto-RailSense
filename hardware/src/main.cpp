@@ -10,7 +10,7 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 
 const char* mqtt_server = "10.110.12.99";
-const int mqtt_port = 1883;
+const int mqtt_port = 1884;
 
 // Acima deste valor o ESP pede uma foto ao celular (topico railsense/camera/capturar).
 const int limiar_captura = 3000;
