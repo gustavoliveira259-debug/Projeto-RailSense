@@ -1,23 +1,14 @@
-import type { Alerta } from '@/api/types'
+import type { PainelResumo } from '@/api/types'
 
 export type AlertasDoDia = { dia: string; BAIXO: number; MEDIO: number; CRITICO: number }
 
-/** Agrupa alertas por dia local nos últimos `dias` dias (inclui dias sem alerta). */
-export function agruparPorDia(alertas: Alerta[], dias = 14): AlertasDoDia[] {
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
-  const linhas = Array.from({ length: dias }, (_, index) => {
-    const dia = new Date(hoje)
-    dia.setDate(hoje.getDate() - (dias - 1 - index))
-    return { dia: dia.toISOString(), BAIXO: 0, MEDIO: 0, CRITICO: 0 }
+/**
+ * Converte os dias do resumo ("AAAA-MM-DD", já no fuso do navegador) para o formato dos gráficos.
+ * O dia vira meia-noite local: new Date("AAAA-MM-DD") seria meia-noite UTC e mostraria o dia anterior no Brasil.
+ */
+export function alertasDoResumo(dias: PainelResumo['alertasPorDia']): AlertasDoDia[] {
+  return dias.map(({ dia, baixo, medio, critico }) => {
+    const [ano, mes, diaDoMes] = dia.split('-').map(Number)
+    return { dia: new Date(ano, mes - 1, diaDoMes).toISOString(), BAIXO: baixo, MEDIO: medio, CRITICO: critico }
   })
-  const porDia = new Map(linhas.map((linha) => [linha.dia, linha]))
-  for (const alerta of alertas) {
-    const dia = new Date(alerta.criadoEm)
-    dia.setHours(0, 0, 0, 0)
-    const linha = porDia.get(dia.toISOString())
-    if (linha) linha[alerta.nivel]++
-  }
-  return linhas
 }
-

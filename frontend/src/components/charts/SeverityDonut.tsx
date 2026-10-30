@@ -1,5 +1,5 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
-import type { Alerta, NivelAlerta } from '@/api/types'
+import type { NivelAlerta } from '@/api/types'
 import { formatInteger } from '@/lib/format'
 import { NIVEL } from '@/lib/labels'
 
@@ -21,9 +21,9 @@ function DonutTooltip({ active, payload }: { active?: boolean; payload?: { paylo
 }
 
 /** Distribuição dos alertas por nível — parte de um todo com três fatias, rotuladas com %. */
-export function SeverityDonut({ alertas }: { alertas: Alerta[] }) {
-  const total = alertas.length
-  const dados = FATIAS.map((fatia) => ({ ...fatia, value: alertas.filter((a) => a.nivel === fatia.key).length }))
+export function SeverityDonut({ porNivel }: { porNivel: Record<NivelAlerta, number> }) {
+  const dados = FATIAS.map((fatia) => ({ ...fatia, value: porNivel[fatia.key] }))
+  const total = dados.reduce((soma, d) => soma + d.value, 0)
 
   return (
     <div className="flex flex-col items-center gap-5 sm:flex-row">

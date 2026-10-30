@@ -372,7 +372,7 @@ function AbaEixos() {
   const [page, setPage] = useState(0)
   const [filtroVagao, setFiltroVagao] = useState('todos')
   const [editando, setEditando] = useState<Eixo | 'novo' | null>(null)
-  const [form, setForm] = useState({ vagaoId: '', posicao: '', identificadorUnico: '' })
+  const [form, setForm] = useState({ vagaoId: '', posicao: '', identificadorUnico: '', sensorDispositivo: '' })
 
   const listaVagoes = useQuery({
     queryKey: ['vagoes', 'todos'],
@@ -386,7 +386,12 @@ function AbaEixos() {
   })
   const salvar = useSalvar(
     () => {
-      const dados = { vagaoId: Number(form.vagaoId), posicao: Number(form.posicao), identificadorUnico: form.identificadorUnico.trim() }
+      const dados = {
+        vagaoId: Number(form.vagaoId),
+        posicao: Number(form.posicao),
+        identificadorUnico: form.identificadorUnico.trim(),
+        sensorDispositivo: form.sensorDispositivo.trim(),
+      }
       return editando === 'novo' ? eixos.criar(dados) : eixos.atualizar(editando!.id, dados)
     },
     [['eixos'], ['eixo']],
@@ -398,12 +403,20 @@ function AbaEixos() {
     setEditando(alvo)
     setForm(
       alvo === 'novo'
-        ? { vagaoId: vagaoId ? String(vagaoId) : '', posicao: '', identificadorUnico: '' }
-        : { vagaoId: String(alvo.vagaoId), posicao: String(alvo.posicao), identificadorUnico: alvo.identificadorUnico },
+        ? { vagaoId: vagaoId ? String(vagaoId) : '', posicao: '', identificadorUnico: '', sensorDispositivo: '' }
+        : {
+            vagaoId: String(alvo.vagaoId),
+            posicao: String(alvo.posicao),
+            identificadorUnico: alvo.identificadorUnico,
+            sensorDispositivo: alvo.sensorDispositivo ?? '',
+          },
     )
   }
 
-  const valido = form.vagaoId && form.identificadorUnico.trim() && Number.isInteger(Number(form.posicao)) && form.posicao !== ''
+  // Mesmo formato aceito pelo backend (EixoRequest.sensorDispositivo).
+  const sensorValido = /^[A-Za-z0-9._-]{0,64}$/.test(form.sensorDispositivo.trim())
+  const valido =
+    form.vagaoId && form.identificadorUnico.trim() && Number.isInteger(Number(form.posicao)) && form.posicao !== '' && sensorValido
 
   return (
     <>
@@ -432,6 +445,7 @@ function AbaEixos() {
               <TableHead className="pl-4">Identificador</TableHead>
               <TableHead>Vagão</TableHead>
               <TableHead className="text-right">Posição</TableHead>
+              <TableHead>Sensor</TableHead>
               <TableHead>Situação</TableHead>
               <TableHead className="w-12 pr-4">
                 <span className="sr-only">Editar</span>
@@ -440,13 +454,13 @@ function AbaEixos() {
           </TableHeader>
           <TableBody>
             {query.isPending ? (
-              <TableSkeleton columns={5} />
+              <TableSkeleton columns={6} />
             ) : query.isError ? (
-              <TableMessage columns={5}>
+              <TableMessage columns={6}>
                 <ErrorState error={query.error} onRetry={() => query.refetch()} />
               </TableMessage>
             ) : query.data.content.length === 0 ? (
-              <TableMessage columns={5}>
+              <TableMessage columns={6}>
                 <EmptyState icon={Database} title="Nenhum eixo cadastrado" />
               </TableMessage>
             ) : (
@@ -455,6 +469,7 @@ function AbaEixos() {
                   <TableCell className="pl-4 font-mono text-xs font-medium">{eixo.identificadorUnico}</TableCell>
                   <TableCell>{eixo.numeroUk}</TableCell>
                   <TableCell className="tabular text-right">{eixo.posicao}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{eixo.sensorDispositivo ?? '—'}</TableCell>
                   <TableCell>
                     <AtivoSwitch
                       ativo={eixo.ativo}
@@ -509,6 +524,25 @@ function AbaEixos() {
             <Input id="eixo-id" value={form.identificadorUnico} onChange={(e) => setForm({ ...form, identificadorUnico: e.target.value })} placeholder="Ex.: GDT1234567-E1" required />
           </Campo>
         </div>
+        <Campo
+          id="eixo-sensor"
+          label="Sensor de vibração (opcional)"
+          hint={
+            sensorValido
+              ? 'ID do ESP32 neste eixo, igual ao campo "device" que ele publica no MQTT. Deixe vazio se não houver sensor.'
+              : 'Use só letras, números, ponto, hífen ou sublinhado.'
+          }
+        >
+          <Input
+            id="eixo-sensor"
+            value={form.sensorDispositivo}
+            onChange={(e) => setForm({ ...form, sensorDispositivo: e.target.value })}
+            placeholder="Ex.: esp32-01"
+            maxLength={64}
+            aria-invalid={!sensorValido}
+            className="font-mono"
+          />
+        </Campo>
       </FormDialog>
     </>
   )

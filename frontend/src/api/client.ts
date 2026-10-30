@@ -20,6 +20,7 @@ import type {
   OrdemManutencao,
   OrdemManutencaoRequest,
   Pagina,
+  PainelResumo,
   Papel,
   PatioLinha,
   PatioLinhaRequest,
@@ -30,6 +31,7 @@ import type {
   UsuarioSessao,
   Vagao,
   VagaoRequest,
+  Vibracao,
 } from './types'
 
 /** Limite do backend: spring.data.web.pageable.max-page-size. */
@@ -81,6 +83,8 @@ export const eixos = {
   detalhar: (id: number) => request<Eixo>(`/api/eixos/${id}`),
   imagens: (id: number, p: Paginacao = {}) => request<Pagina<Imagem>>(`/api/eixos/${id}/imagens${qs(p)}`),
   analises: (id: number, p: Paginacao = {}) => request<Pagina<Analise>>(`/api/eixos/${id}/analises${qs(p)}`),
+  /** Leituras do sensor de vibração nos últimos `minutos` (1 a 60). */
+  vibracao: (id: number, minutos = 10) => request<Vibracao>(`/api/eixos/${id}/vibracao${qs({ minutos })}`),
   criar: (dados: EixoRequest) => request<Eixo>('/api/eixos', { method: 'POST', json: dados }),
   atualizar: (id: number, dados: EixoRequest) => request<Eixo>(`/api/eixos/${id}`, { method: 'PUT', json: dados }),
   alterarAtivo: (id: number, ativo: boolean) =>
@@ -118,6 +122,12 @@ export const ordens = {
 }
 
 // ---------------------------------------------------------- usuários (ADMIN)
+export const painel = {
+  /** Os dias são contados no fuso do navegador. */
+  resumo: () =>
+    request<PainelResumo>(`/api/painel/resumo${qs({ fuso: Intl.DateTimeFormat().resolvedOptions().timeZone })}`),
+}
+
 export const usuarios = {
   listar: (p: Paginacao = {}) => request<Pagina<Usuario>>(`/api/usuarios${qs(p)}`),
   criar: (dados: CriarUsuarioRequest) => request<Usuario>('/api/usuarios', { method: 'POST', json: dados }),

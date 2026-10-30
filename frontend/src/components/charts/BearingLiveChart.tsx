@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   CartesianGrid,
@@ -20,6 +20,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime, formatScore } from '@/lib/format'
 import { CLASSIFICACAO } from '@/lib/labels'
+import { useSegundosDesde } from '@/lib/useSegundosDesde'
 
 /** Intervalo de atualização: cada captura nova do eixo vira um ponto no gráfico. */
 const ATUALIZAR_A_CADA = 10_000
@@ -70,16 +71,6 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: { paylo
   )
 }
 
-/** "há 4 s" — relógio local para mostrar que o gráfico está vivo. */
-function useSegundosDesde(instante: number) {
-  const [agora, setAgora] = useState(() => Date.now())
-  useEffect(() => {
-    const id = setInterval(() => setAgora(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [])
-  return instante ? Math.max(0, Math.round((agora - instante) / 1000)) : null
-}
-
 type BearingLiveChartProps = {
   eixoId: number
   eixoIdentificador: string
@@ -116,7 +107,7 @@ export function BearingLiveChart({ eixoId, eixoIdentificador, alertaEm }: Bearin
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Radio className="size-4 text-glow" aria-hidden="true" /> Rolamento em tempo real
+          <Radio className="size-4 text-glow" aria-hidden="true" /> Análises de imagem ao vivo
         </CardTitle>
         <CardDescription>
           Score de diferença de cada captura de <span className="font-mono">{eixoIdentificador}</span> em relação à

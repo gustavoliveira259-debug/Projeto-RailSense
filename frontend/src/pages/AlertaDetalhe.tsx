@@ -6,6 +6,7 @@ import { CheckCircle2, ClipboardPlus, FileSearch, History, Loader2, ScanSearch, 
 import { alertas, eixos, ordens } from '@/api/client'
 import type { AlertaDetalhe as AlertaDetalheType, DecisaoTipo, Prioridade } from '@/api/types'
 import { BearingLiveChart } from '@/components/charts/BearingLiveChart'
+import { VibrationLiveChart } from '@/components/charts/VibrationLiveChart'
 import { EmptyState } from '@/components/EmptyState'
 import { EvidenceImage } from '@/components/EvidenceImage'
 import { PageHeader } from '@/components/PageHeader'
@@ -259,6 +260,8 @@ export default function AlertaDetalhe() {
               )}
             </CardContent>
           </Card>
+
+          <VibrationLiveChart eixoId={alerta.eixoId} eixoIdentificador={alerta.eixoIdentificador} />
 
           <BearingLiveChart eixoId={alerta.eixoId} eixoIdentificador={alerta.eixoIdentificador} alertaEm={alerta.criadoEm} />
 

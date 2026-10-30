@@ -7,6 +7,7 @@ import { alertas, eixos, imagens } from '@/api/client'
 import type { ResultadoUpload } from '@/api/types'
 import { EmptyState } from '@/components/EmptyState'
 import { EvidenceImage } from '@/components/EvidenceImage'
+import { VibrationLiveChart } from '@/components/charts/VibrationLiveChart'
 import { PageHeader } from '@/components/PageHeader'
 import { Pagination } from '@/components/Pagination'
 import { ErrorState, TableMessage, TableSkeleton } from '@/components/QueryStates'
@@ -431,6 +432,12 @@ export default function EixoDetalhe() {
         </Card>
         {eixo.data ? <EnviarImagem eixoId={id} ativo={eixo.data.ativo} /> : <Skeleton className="h-full min-h-64" />}
       </div>
+
+      {eixo.data && (
+        <div className="mb-4">
+          <VibrationLiveChart eixoId={id} eixoIdentificador={eixo.data.identificadorUnico} />
+        </div>
+      )}
 
       <Tabs defaultValue="capturas">
         <TabsList className="mb-3">

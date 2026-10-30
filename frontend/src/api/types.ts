@@ -66,6 +66,8 @@ export type Eixo = {
   numeroUk: string
   nomePatioLinha: string
   ativo: boolean
+  /** Campo "device" do ESP32 que mede a vibração deste eixo; null se não houver sensor. */
+  sensorDispositivo: string | null
 }
 
 /** ImagemResponse */
@@ -150,11 +152,36 @@ export type ResultadoUpload = {
   alertaId: number | null
 }
 
+/** VibracaoResponse — leituras recentes do sensor do eixo, em ordem cronológica. */
+export type Vibracao = {
+  eixoId: number
+  sensorDispositivo: string | null
+  /** Acima deste valor o ESP32 pede uma foto (limiar_captura do firmware). */
+  limiar: number
+  /** Fundo de escala do ADC (4095). */
+  valorMaximo: number
+  leituras: { valor: number; lidoEm: string }[]
+}
+
+/** PainelResumoResponse — contagens sobre todos os registros, calculadas no banco. */
+export type PainelResumo = {
+  geradoEm: string
+  alertasPorStatus: Record<StatusAlerta, number>
+  aguardandoPorNivel: Record<NivelAlerta, number>
+  ordensPorStatus: Record<StatusOrdem, number>
+  eixosAtivos: number
+  vagoesAtivos: number
+  /** Um item por dia (`dia` = "AAAA-MM-DD" no fuso pedido), do mais antigo para hoje. */
+  alertasPorDia: { dia: string; baixo: number; medio: number; critico: number }[]
+  filaDecisao: Alerta[]
+  ordensPrioritarias: OrdemManutencao[]
+}
+
 // ------------------------------------------------------------ requisições
 
 export type PatioLinhaRequest = { nome: string; tipo: TipoPatioLinha }
 export type VagaoRequest = { numeroUk: string; tipo?: string; patioLinhaId: number }
-export type EixoRequest = { vagaoId: number; posicao: number; identificadorUnico: string }
+export type EixoRequest = { vagaoId: number; posicao: number; identificadorUnico: string; sensorDispositivo?: string }
 export type DecisaoAlertaRequest = { decisao: DecisaoTipo; motivo?: string }
 export type OrdemManutencaoRequest = { alertaId: number; titulo: string; prioridade?: Prioridade }
 export type CriarUsuarioRequest = { nome: string; email: string; password: string; papel: Papel }

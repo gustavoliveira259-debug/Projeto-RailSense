@@ -2,8 +2,8 @@ import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Activity, AlertOctagon, ArrowRight, ClipboardList, Cog, SearchCheck } from 'lucide-react'
-import { alertas, eixos, ordens, TAMANHO_MAXIMO_PAGINA, vagoes } from '@/api/client'
-import type { StatusAlerta } from '@/api/types'
+import { painel } from '@/api/client'
+import type { NivelAlerta, StatusAlerta } from '@/api/types'
 import { useUser } from '@/auth/useAuth'
 import { AlertsByDayChart } from '@/components/charts/AlertsByDayChart'
 import { SeverityDonut } from '@/components/charts/SeverityDonut'
@@ -15,12 +15,10 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { agruparPorDia } from '@/lib/alertasPorDia'
+import { alertasDoResumo } from '@/lib/alertasPorDia'
 import { formatInteger, formatRelative, formatScore } from '@/lib/format'
 import { NIVEL, PRIORIDADE, STATUS_ALERTA } from '@/lib/labels'
 
-const PESO_NIVEL = { CRITICO: 2, MEDIO: 1, BAIXO: 0 } as const
-const PESO_PRIORIDADE = { URGENTE: 3, ALTA: 2, MEDIA: 1, BAIXA: 0 } as const
 const STATUS_ORDEM_EXIBICAO: StatusAlerta[] = ['EM_ANALISE', 'CONFIRMADO', 'FALSO_POSITIVO', 'FECHADO']
 const BARRA_STATUS: Record<StatusAlerta, string> = {
   EM_ANALISE: 'bg-warning',
@@ -46,59 +44,29 @@ function ListaSkeleton({ linhas, altura = 'h-12' }: { linhas: number; altura?: s
 
 export default function Painel() {
   const user = useUser()
+  // Um único resumo calculado no banco, sobre todos os registros.
   // Atualiza sozinho a cada minuto: o painel costuma ficar aberto numa tela da sala de controle.
-  const refetchInterval = 60_000
+  const resumo = useQuery({ queryKey: ['painel', 'resumo'], queryFn: painel.resumo, refetchInterval: 60_000 })
+  const dados = resumo.data
+  const carregando = resumo.isPending
 
-  const pendentes = useQuery({
-    queryKey: ['alertas', { status: 'EM_ANALISE', size: TAMANHO_MAXIMO_PAGINA }],
-    queryFn: () => alertas.listar({ status: 'EM_ANALISE', size: TAMANHO_MAXIMO_PAGINA }),
-    refetchInterval,
-  })
-  const recentes = useQuery({
-    queryKey: ['alertas', { size: TAMANHO_MAXIMO_PAGINA }],
-    queryFn: () => alertas.listar({ size: TAMANHO_MAXIMO_PAGINA }),
-    refetchInterval,
-  })
-  const abertas = useQuery({
-    queryKey: ['ordens', { status: 'ABERTA', size: TAMANHO_MAXIMO_PAGINA }],
-    queryFn: () => ordens.listar({ status: 'ABERTA', size: TAMANHO_MAXIMO_PAGINA }),
-    refetchInterval,
-  })
-  const emAndamento = useQuery({
-    queryKey: ['ordens', { status: 'EM_ANDAMENTO', size: TAMANHO_MAXIMO_PAGINA }],
-    queryFn: () => ordens.listar({ status: 'EM_ANDAMENTO', size: TAMANHO_MAXIMO_PAGINA }),
-    refetchInterval,
-  })
-  const totalVagoes = useQuery({ queryKey: ['vagoes', 'total'], queryFn: () => vagoes.listar({ size: 1 }) })
-  const totalEixos = useQuery({ queryKey: ['eixos', 'total'], queryFn: () => eixos.listar({ size: 1 }) })
-
-  const fila = useMemo(
+  const porDia = useMemo(() => alertasDoResumo(dados?.alertasPorDia ?? []), [dados])
+  const porNivel14d = useMemo(
     () =>
-      [...(pendentes.data?.content ?? [])].sort(
-        (a, b) => PESO_NIVEL[b.nivel] - PESO_NIVEL[a.nivel] || a.criadoEm.localeCompare(b.criadoEm),
+      porDia.reduce<Record<NivelAlerta, number>>(
+        (soma, d) => ({ BAIXO: soma.BAIXO + d.BAIXO, MEDIO: soma.MEDIO + d.MEDIO, CRITICO: soma.CRITICO + d.CRITICO }),
+        { BAIXO: 0, MEDIO: 0, CRITICO: 0 },
       ),
-    [pendentes.data],
+    [porDia],
   )
-  const criticosPendentes = fila.filter((a) => a.nivel === 'CRITICO').length
-  const ordensPendentes = useMemo(
-    () =>
-      [...(abertas.data?.content ?? []), ...(emAndamento.data?.content ?? [])].sort(
-        (a, b) => PESO_PRIORIDADE[b.prioridade] - PESO_PRIORIDADE[a.prioridade] || a.criadoEm.localeCompare(b.criadoEm),
-      ),
-    [abertas.data, emAndamento.data],
-  )
-  const amostra = useMemo(() => recentes.data?.content ?? [], [recentes.data])
-  const porDia = useMemo(() => agruparPorDia(amostra), [amostra])
-  // Janela medida a partir do momento da busca (estável entre renderizações).
-  const buscadoEm = recentes.dataUpdatedAt
-  const ultimos14Dias = useMemo(
-    () => amostra.filter((a) => buscadoEm - new Date(a.criadoEm).getTime() < 14 * 86_400_000),
-    [amostra, buscadoEm],
-  )
-  const totalPorDia = porDia.map((d) => d.BAIXO + d.MEDIO + d.CRITICO)
-  const alertas14d = totalPorDia.reduce((soma, n) => soma + n, 0)
-  // Se a página veio cheia, os 14 dias podem estar incompletos — avisa em vez de esconder.
-  const amostraLimitada = (recentes.data?.totalElements ?? 0) > TAMANHO_MAXIMO_PAGINA
+  const alertas14d = porNivel14d.BAIXO + porNivel14d.MEDIO + porNivel14d.CRITICO
+  const aguardando = dados?.alertasPorStatus.EM_ANALISE ?? 0
+  const criticosPendentes = dados?.aguardandoPorNivel.CRITICO ?? 0
+  const emAndamento = dados?.ordensPorStatus.EM_ANDAMENTO ?? 0
+  const ordensPendentes = (dados?.ordensPorStatus.ABERTA ?? 0) + emAndamento
+  const totalAlertas = dados ? Object.values(dados.alertasPorStatus).reduce((soma, n) => soma + n, 0) : 0
+  const fila = dados?.filaDecisao ?? []
+  const ordensPrioritarias = dados?.ordensPrioritarias ?? []
 
   return (
     <>
@@ -107,14 +75,20 @@ export default function Painel() {
         description="Visão geral do monitoramento de rolamentos em tempo real."
       />
 
+      {resumo.isError && (
+        <div className="mb-4">
+          <ErrorState error={resumo.error} onRetry={() => resumo.refetch()} />
+        </div>
+      )}
+
       <section aria-label="Indicadores" className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           label="Aguardando decisão"
-          value={formatInteger(pendentes.data?.totalElements ?? 0)}
-          hint={criticosPendentes > 0 ? `${criticosPendentes} em nível crítico` : 'Nenhum crítico pendente'}
+          value={formatInteger(aguardando)}
+          hint={criticosPendentes > 0 ? `${formatInteger(criticosPendentes)} em nível crítico` : 'Nenhum crítico pendente'}
           icon={SearchCheck}
           tone={criticosPendentes > 0 ? 'critical' : 'warning'}
-          loading={pendentes.isPending}
+          loading={carregando}
           to="/alertas"
         />
         <KpiCard
@@ -123,24 +97,24 @@ export default function Painel() {
           hint="Capturas que divergiram da referência"
           icon={Activity}
           tone="info"
-          loading={recentes.isPending}
+          loading={carregando}
           to="/alertas?status=TODOS"
         />
         <KpiCard
           label="Ordens pendentes"
-          value={formatInteger((abertas.data?.totalElements ?? 0) + (emAndamento.data?.totalElements ?? 0))}
-          hint={`${formatInteger(emAndamento.data?.totalElements ?? 0)} em andamento`}
+          value={formatInteger(ordensPendentes)}
+          hint={`${formatInteger(emAndamento)} em andamento`}
           icon={ClipboardList}
           tone="info"
-          loading={abertas.isPending || emAndamento.isPending}
+          loading={carregando}
           to="/ordens"
         />
         <KpiCard
           label="Eixos monitorados"
-          value={formatInteger(totalEixos.data?.totalElements ?? 0)}
-          hint={`em ${formatInteger(totalVagoes.data?.totalElements ?? 0)} vagões cadastrados`}
+          value={formatInteger(dados?.eixosAtivos ?? 0)}
+          hint={`em ${formatInteger(dados?.vagoesAtivos ?? 0)} vagões ativos`}
           icon={Cog}
-          loading={totalEixos.isPending || totalVagoes.isPending}
+          loading={carregando}
           to="/frota"
         />
       </section>
@@ -149,19 +123,14 @@ export default function Painel() {
         <Card>
           <CardHeader>
             <CardTitle>Alertas ao longo do tempo</CardTitle>
-            <CardDescription>
-              Últimos 14 dias · passe o mouse para ver por nível
-              {amostraLimitada && ' · considera os 100 alertas mais recentes'}
-            </CardDescription>
+            <CardDescription>Últimos 14 dias · passe o mouse para ver por nível</CardDescription>
             <CardAction>
               <span className="tabular text-glow text-3xl font-semibold">{formatInteger(alertas14d)}</span>
             </CardAction>
           </CardHeader>
           <CardContent>
-            {recentes.isPending ? (
+            {carregando || !dados ? (
               <Skeleton className="h-80 w-full rounded-xl xl:h-[23rem]" />
-            ) : recentes.isError ? (
-              <ErrorState error={recentes.error} onRetry={() => recentes.refetch()} />
             ) : (
               <AlertsByDayChart data={porDia} />
             )}
@@ -174,10 +143,8 @@ export default function Painel() {
             <CardDescription>Mais graves e mais antigos primeiro</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col px-2">
-            {pendentes.isPending ? (
+            {carregando || !dados ? (
               <ListaSkeleton linhas={5} />
-            ) : pendentes.isError ? (
-              <ErrorState error={pendentes.error} onRetry={() => pendentes.refetch()} />
             ) : fila.length === 0 ? (
               <EmptyState
                 icon={SearchCheck}
@@ -186,7 +153,7 @@ export default function Painel() {
               />
             ) : (
               <ul className="space-y-1">
-                {fila.slice(0, 6).map((alerta) => (
+                {fila.map((alerta) => (
                   <li key={alerta.id}>
                     <Link
                       to={`/alertas/${alerta.id}`}
@@ -210,7 +177,7 @@ export default function Painel() {
             {fila.length > 0 && (
               <Button variant="outline" className="mx-2 mt-auto" asChild>
                 <Link to="/alertas">
-                  Ver todos os alertas <ArrowRight />
+                  Ver todos os {formatInteger(aguardando)} alertas <ArrowRight />
                 </Link>
               </Button>
             )}
@@ -225,10 +192,10 @@ export default function Painel() {
             <CardDescription>Alertas dos últimos 14 dias</CardDescription>
           </CardHeader>
           <CardContent>
-            {recentes.isPending ? (
+            {carregando || !dados ? (
               <Skeleton className="h-40 w-full rounded-xl" />
             ) : (
-              <SeverityDonut alertas={ultimos14Dias} />
+              <SeverityDonut porNivel={porNivel14d} />
             )}
           </CardContent>
         </Card>
@@ -236,16 +203,18 @@ export default function Painel() {
         <Card>
           <CardHeader>
             <CardTitle>Situação dos alertas</CardTitle>
-            <CardDescription>Como os alertas recentes foram tratados</CardDescription>
+            <CardDescription>
+              Como os {formatInteger(totalAlertas)} alertas registrados foram tratados
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {recentes.isPending ? (
+            {carregando || !dados ? (
               <Skeleton className="h-40 w-full rounded-xl" />
             ) : (
               <ul className="space-y-4">
                 {STATUS_ORDEM_EXIBICAO.map((status) => {
-                  const quantidade = amostra.filter((a) => a.status === status).length
-                  const pct = amostra.length ? Math.round((quantidade / amostra.length) * 100) : 0
+                  const quantidade = dados.alertasPorStatus[status]
+                  const pct = totalAlertas ? Math.round((quantidade / totalAlertas) * 100) : 0
                   const Icon = STATUS_ALERTA[status].icon
                   return (
                     <li key={status} className="space-y-1.5">
@@ -254,7 +223,9 @@ export default function Painel() {
                           <Icon className="size-4" aria-hidden="true" />
                           {STATUS_ALERTA[status].label}
                         </span>
-                        <span className="tabular font-medium">{pct}%</span>
+                        <span className="tabular font-medium">
+                          {pct}% <span className="font-normal text-muted-foreground">· {formatInteger(quantidade)}</span>
+                        </span>
                       </div>
                       <div
                         className="h-1.5 overflow-hidden rounded-full bg-muted"
@@ -287,15 +258,13 @@ export default function Painel() {
             </CardAction>
           </CardHeader>
           <CardContent className="px-2">
-            {abertas.isPending || emAndamento.isPending ? (
+            {carregando || !dados ? (
               <ListaSkeleton linhas={4} altura="h-11" />
-            ) : abertas.isError || emAndamento.isError ? (
-              <ErrorState error={abertas.error ?? emAndamento.error} />
-            ) : ordensPendentes.length === 0 ? (
+            ) : ordensPrioritarias.length === 0 ? (
               <EmptyState icon={AlertOctagon} title="Nenhuma ordem pendente" />
             ) : (
               <ul className="space-y-1">
-                {ordensPendentes.slice(0, 4).map((ordem) => (
+                {ordensPrioritarias.map((ordem) => (
                   <li key={ordem.id} className="flex items-center gap-3 rounded-xl px-3 py-2">
                     <StatusBadge spec={PRIORIDADE[ordem.prioridade]} className="w-[5.5rem] justify-center" />
                     <span className="min-w-0 flex-1">
