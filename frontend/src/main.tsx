@@ -1,26 +1,44 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import './index.css'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ThemeProvider } from 'next-themes'
+import { AuthProvider } from '@/auth/AuthContext'
+import { Toaster } from '@/components/ui/sonner'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { ApiError } from '@/services/http'
 import App from './App.tsx'
+import './index.css'
 
-// Obtém o elemento root criado pelo Vite no arquivo index.html.
 const rootElement = document.getElementById('root')
-
-// Interrompe a inicialização com uma mensagem clara se o HTML estiver
-// incompleto. Isso evita um erro silencioso durante o desenvolvimento.
 if (!rootElement) {
   throw new Error('Elemento #root não foi encontrado no index.html.')
 }
 
-// StrictMode ajuda a identificar problemas comuns durante o desenvolvimento.
-// Ele não substitui as validações e proteções que serão implementadas no backend.
-// BrowserRouter habilita rotas reais (URL muda, F5 mantém a tela, botão
-// voltar/avançar do navegador funciona).
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      // Não insiste em erros de cliente (401, 403, 404, 409): repetir não muda a resposta.
+      retry: (failureCount, error) =>
+        !(error instanceof ApiError && error.status >= 400 && error.status < 500) && failureCount < 2,
+    },
+  },
+})
+
 createRoot(rootElement).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <TooltipProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </TooltipProvider>
+        </BrowserRouter>
+        <Toaster richColors position="top-right" />
+      </QueryClientProvider>
+    </ThemeProvider>
   </StrictMode>,
 )

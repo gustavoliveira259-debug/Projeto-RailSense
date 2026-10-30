@@ -1,18 +1,249 @@
-/* Reset global mínimo para manter a tela consistente entre navegadores. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+
+    /* Cores de status operacional: sempre acompanhadas de ícone + texto. */
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-critical: var(--critical);
+    --color-info: var(--info);
+
+    /* Acentos da marca: ciano para dados, violeta para ações. */
+    --color-glow: var(--glow);
+    --color-violet: var(--violet);
+
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+ * Tema claro — mesma linguagem (ciano + violeta), em superfícies claras.
+ * O escuro é o padrão (ver main.tsx); este existe para ambientes muito iluminados.
+ */
 :root {
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    --background: #f3f5f9;
+    --foreground: #0b1220;
+    --card: #ffffff;
+    --card-foreground: #0b1220;
+    --popover: #ffffff;
+    --popover-foreground: #0b1220;
+    --primary: #6d4ae0;
+    --primary-foreground: #ffffff;
+    --secondary: #eceff5;
+    --secondary-foreground: #0b1220;
+    --muted: #eef1f6;
+    --muted-foreground: #5b6578;
+    --accent: #ece8fd;
+    --accent-foreground: #0b1220;
+    --destructive: #c42f2f;
+    --border: #e1e5ee;
+    --input: #d6dbe6;
+    --ring: #6d4ae0;
+
+    --glow: #0e9f96;
+    --violet: #6d4ae0;
+
+    --success: #13803b;
+    --warning: #b36b00;
+    --critical: #c42f2f;
+    --info: #1d74c4;
+
+    /* Nível de alerta (validado para daltonismo: BAIXO, MÉDIO, CRÍTICO). */
+    --chart-1: #5b8fd9;
+    --chart-2: #d68a00;
+    --chart-3: #c42f2f;
+    --chart-4: #0e9f96;
+    --chart-5: #6d4ae0;
+    --chart-grid: #e6eaf1;
+    --chart-surface: #ffffff;
+
+    --card-highlight: rgb(255 255 255 / 0);
+    --card-edge: rgb(15 23 42 / 0.08);
+    --page-glow-1: rgb(109 74 224 / 0.08);
+    --page-glow-2: rgb(14 159 150 / 0.06);
+    --constellation: rgb(15 23 42 / 0.05);
+
+    --radius: 0.75rem;
+
+    --sidebar: #ffffff;
+    --sidebar-foreground: #39445a;
+    --sidebar-primary: #0e9f96;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #eef1f6;
+    --sidebar-accent-foreground: #0b1220;
+    --sidebar-border: #e1e5ee;
+    --sidebar-ring: #6d4ae0;
 }
 
-html,
-body,
-#root {
-  min-width: 320px;
-  min-height: 100%;
+/* Tema escuro — inspirado em centros de operação: quase preto, vidro e brilho ciano/violeta. */
+.dark {
+    --background: #05070d;
+    --foreground: #e8edf6;
+    --card: #0b0f19;
+    --card-foreground: #e8edf6;
+    --popover: #0f1422;
+    --popover-foreground: #e8edf6;
+    --primary: #8b6cf6;
+    --primary-foreground: #ffffff;
+    --secondary: #141a29;
+    --secondary-foreground: #e8edf6;
+    --muted: #121827;
+    --muted-foreground: #8792a8;
+    --accent: #161d2e;
+    --accent-foreground: #f2f5fb;
+    --destructive: #f0587a;
+    --border: rgb(148 163 194 / 0.12);
+    --input: rgb(148 163 194 / 0.16);
+    --ring: #8b6cf6;
+
+    --glow: #2ee6d6;
+    --violet: #9b7bff;
+
+    --success: #34d399;
+    --warning: #f5b544;
+    --critical: #f0587a;
+    --info: #4cb8f0;
+
+    --chart-1: #2a93c9;
+    --chart-2: #bf8410;
+    --chart-3: #d9466a;
+    --chart-4: #2ee6d6;
+    --chart-5: #9b7bff;
+    --chart-grid: rgb(148 163 194 / 0.09);
+    --chart-surface: #0b0f19;
+
+    --card-highlight: rgb(255 255 255 / 0.035);
+    --card-edge: rgb(148 163 194 / 0.12);
+    --page-glow-1: rgb(139 108 246 / 0.16);
+    --page-glow-2: rgb(46 230 214 / 0.07);
+    --constellation: rgb(148 163 194 / 0.07);
+
+    --sidebar: #070a12;
+    --sidebar-foreground: #9aa5bb;
+    --sidebar-primary: #2ee6d6;
+    --sidebar-primary-foreground: #04110f;
+    --sidebar-accent: rgb(46 230 214 / 0.07);
+    --sidebar-accent-foreground: #f2f5fb;
+    --sidebar-border: rgb(148 163 194 / 0.1);
+    --sidebar-ring: #2ee6d6;
 }
 
-body {
-  min-height: 100vh;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+  button:not(:disabled), [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  html, body, #root {
+    min-height: 100%;
+  }
+}
+
+/* Números tabulares para leituras, contagens e horários alinharem em colunas. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Cards de "vidro": gradiente quase imperceptível, borda fina e um brilho
+ * de 1px no topo. Aplicado a todo [data-slot=card] para manter as telas iguais.
+ */
+[data-slot="card"] {
+  background-image: linear-gradient(180deg, var(--card-highlight), transparent 40%);
+  box-shadow:
+    inset 0 1px 0 0 var(--card-highlight),
+    0 0 0 1px var(--card-edge),
+    0 18px 40px -24px rgb(0 0 0 / 0.55);
+  --tw-ring-color: transparent;
+  border-radius: 1rem;
+}
+
+/* Fundo da área de trabalho: dois halos de cor + uma constelação discreta. */
+.app-backdrop {
+  background:
+    radial-gradient(60rem 40rem at 0% -10%, var(--page-glow-1), transparent 60%),
+    radial-gradient(50rem 36rem at 100% 0%, var(--page-glow-2), transparent 60%),
+    var(--background);
+}
+.app-backdrop::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='520' viewBox='0 0 520 520'%3E%3Cg fill='none' stroke='%2394a3c2' stroke-width='0.6'%3E%3Cpath d='M40 80 L160 40 L260 120 L380 60 L480 140'/%3E%3Cpath d='M160 40 L120 220 L260 120 L300 300 L440 260 L480 140'/%3E%3Cpath d='M120 220 L60 360 L200 440 L300 300 L420 420'/%3E%3C/g%3E%3Cg fill='%2394a3c2'%3E%3Ccircle cx='40' cy='80' r='1.6'/%3E%3Ccircle cx='160' cy='40' r='2'/%3E%3Ccircle cx='260' cy='120' r='1.6'/%3E%3Ccircle cx='380' cy='60' r='1.4'/%3E%3Ccircle cx='480' cy='140' r='2'/%3E%3Ccircle cx='120' cy='220' r='1.6'/%3E%3Ccircle cx='300' cy='300' r='2'/%3E%3Ccircle cx='440' cy='260' r='1.4'/%3E%3Ccircle cx='60' cy='360' r='1.6'/%3E%3Ccircle cx='200' cy='440' r='1.4'/%3E%3Ccircle cx='420' cy='420' r='1.8'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.55;
+  mask-image: radial-gradient(ellipse at 70% 0%, black 0%, transparent 75%);
+}
+:root:not(.dark) .app-backdrop::before {
+  opacity: 0.35;
+}
+
+/* Brilho de dado em destaque (números e linhas em ciano). */
+.text-glow {
+  color: var(--glow);
+}
+.dark .text-glow {
+  text-shadow: 0 0 22px rgb(46 230 214 / 0.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
