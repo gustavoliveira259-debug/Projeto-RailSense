@@ -50,8 +50,7 @@ public class AlertaController {
         } else {
             pagina = status != null ? alertas.findByStatus(status, pageable) : alertas.findAll(pageable);
         }
-        return PageResponse.of(pagina, a -> new AlertaResponse(a.getId(), a.getNivel(), a.getStatus(), a.getScore(),
-            a.getEixo().getId(), a.getEixo().getIdentificadorUnico(), a.getCriadoEm()));
+        return PageResponse.of(pagina, AlertaResponse::from);
     }
 
     @GetMapping("/{id}")
