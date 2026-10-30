@@ -9,10 +9,12 @@ public record EixoResponse(
     Long vagaoId,
     String numeroUk,
     String nomePatioLinha,
-    boolean ativo
+    boolean ativo,
+    String sensorDispositivo
 ) {
     public static EixoResponse from(Eixo e) {
         return new EixoResponse(e.getId(), e.getPosicao(), e.getIdentificadorUnico(),
-            e.getVagao().getId(), e.getVagao().getNumeroUk(), e.getVagao().getPatioLinha().getNome(), e.isAtivo());
+            e.getVagao().getId(), e.getVagao().getNumeroUk(), e.getVagao().getPatioLinha().getNome(), e.isAtivo(),
+            e.getSensorDispositivo());
     }
 }

@@ -1,184 +1,160 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
-import logo from '../assets/Logo.png'
-import backgroundImage from '../assets/fundo-do-login.jpg'
-import './Login.css'
-import { login, type AuthenticatedUser } from '../services/auth'
+import { useState, type FormEvent } from 'react'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react'
+import { LogoMark } from '@/components/LogoMark'
+import { auth } from '@/api/client'
+import { homeDoPapel, useAuth } from '@/auth/useAuth'
+import { BearingParticles } from '@/components/BearingParticles'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { ApiError } from '@/services/http'
 
-/**
- * Ícone de envelope usado no campo de e-mail.
- *
- * O SVG é mantido no componente para evitar a instalação de uma biblioteca
- * adicional apenas para dois ícones da tela de entrada.
- */
-function MailIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="input-icon">
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m4 7 8 6 8-6" />
-    </svg>
-  )
-}
-
-/** Ícone de cadeado usado no campo de senha. */
-function LockIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="input-icon">
-      <rect x="5" y="10" width="14" height="10" rx="2" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
-    </svg>
-  )
-}
-
-/** Ícone do botão que mostra ou oculta a senha. */
-function EyeIcon({ visible }: { visible: boolean }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="eye-icon">
-      {visible ? (
-        <>
-          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
-          <circle cx="12" cy="12" r="2.5" />
-        </>
-      ) : (
-        <>
-          <path d="m3 3 18 18" />
-          <path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a18 18 0 0 1-3.1 3.7M6.2 6.8C3.4 8.4 2 12 2 12s3.5 6 10 6c1.4 0 2.7-.3 3.8-.8" />
-        </>
-      )}
-    </svg>
-  )
-}
-
-type LoginProps = {
-  onAuthenticated: (user: AuthenticatedUser) => void
-  onRegister: () => void
-}
-
-export default function Login({ onAuthenticated, onRegister }: LoginProps) {
-  // Os valores ficam somente no estado temporário do formulário.
-  // Não salve senha, token ou sessão no localStorage.
+export default function Login() {
+  const { user, signIn } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  // Os valores ficam só no estado do formulário. Nunca grave senha ou sessão no localStorage.
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  /**
-   * Processa o envio do formulário.
-   *
-   * A senha é enviada somente por HTTPS para o endpoint de autenticação.
-   * A sessão resultante fica em um cookie HttpOnly, não no localStorage.
-   */
+  if (user) return <Navigate to={homeDoPapel(user.papel)} replace />
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
-
-    // A validação no frontend melhora a experiência, mas não substitui
-    // a validação definitiva que deverá existir no backend.
     if (!email.trim() || !password) {
       setError('Informe seu e-mail e sua senha.')
       return
     }
 
     try {
-      setIsSubmitting(true)
-      const user = await login(email.trim(), password)
+      setSubmitting(true)
+      const sessao = await auth.login(email.trim(), password)
       setPassword('')
-      onAuthenticated(user)
-    } catch {
-      // A resposta é deliberadamente genérica para não revelar se um e-mail existe.
-      setError('E-mail ou senha inválidos.')
+      signIn(sessao)
+      const from = (location.state as { from?: string } | null)?.from
+      navigate(from && from !== '/login' ? from : homeDoPapel(sessao.papel), { replace: true })
+    } catch (err) {
+      // Mensagem genérica de propósito: não revela se o e-mail existe.
+      setError(
+        err instanceof ApiError && err.status === 429
+          ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
+          : err instanceof ApiError
+            ? 'E-mail ou senha inválidos.'
+            : 'Sem conexão com o servidor. Verifique sua rede.',
+      )
     } finally {
-      setIsSubmitting(false)
+      setSubmitting(false)
     }
   }
 
   return (
-    <main className="login-page">
-      {/*
-        A imagem é apenas decorativa.
-        aria-hidden evita que leitores de tela tentem interpretá-la como
-        informação essencial para o processo de autenticação.
-      */}
+    // A tela de entrada é sempre escura, independentemente do tema escolhido no sistema.
+    <main className="dark relative min-h-svh overflow-hidden bg-[#03050a] text-foreground">
       <div
-        className="background-decoration"
         aria-hidden="true"
-        style={{ backgroundImage: `url(${backgroundImage})` }}
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(40rem_30rem_at_75%_45%,rgb(139_108_246/0.18),transparent_70%),radial-gradient(30rem_24rem_at_85%_70%,rgb(46_230_214/0.10),transparent_70%)]"
       />
+      <BearingParticles className="pointer-events-none absolute top-1/2 right-[-20%] h-[90vh] w-[90vh] -translate-y-1/2 opacity-40 lg:right-[-4%] lg:h-[min(92vh,880px)] lg:w-[min(58vw,880px)] lg:opacity-100" />
 
-      <section className="login-card" aria-labelledby="login-title">
-        {/* Logo importada como asset local do projeto. */}
-        <img className="login-logo" src={logo} alt="Logo RailSense" />
+      <header className="relative z-10 flex items-center justify-between px-6 py-6 sm:px-10 lg:px-16">
+        <div className="flex items-center gap-2.5">
+          <LogoMark />
+          <span className="text-lg font-semibold tracking-tight">RailSense</span>
+        </div>
+        <span className="hidden items-center gap-2 text-xs tracking-wider text-muted-foreground uppercase sm:flex">
+          <ShieldCheck className="size-4 text-glow" aria-hidden="true" /> Acesso restrito
+        </span>
+      </header>
 
-        <h1 id="login-title">Sistema de Monitoramento de Rolamentos</h1>
-        <p className="login-subtitle">
-          Monitoramento de vazamentos por visão computacional
-        </p>
+      <section className="relative z-10 flex min-h-[calc(100svh-5rem)] flex-col justify-center px-6 pb-12 sm:px-10 lg:px-16">
+        <div className="max-w-xl space-y-6">
+          <h1 className="text-5xl leading-[1.02] font-medium tracking-[-0.035em] sm:text-6xl lg:text-7xl">
+            Monitore cada rolamento.
+          </h1>
+          <p className="text-xs font-semibold tracking-[0.18em] text-warning uppercase">
+            Detecção de vazamento por visão computacional
+          </p>
+          <p className="max-w-md text-base text-muted-foreground">
+            Cada captura é comparada com a referência do eixo. Desvios viram alertas classificados por gravidade, decididos
+            por engenheiros e convertidos em ordens de manutenção.
+          </p>
 
-        <form onSubmit={handleSubmit} noValidate>
-          <div className="field-group">
-            <label htmlFor="email">E-mail</label>
-            <div className="input-wrapper">
-              <MailIcon />
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="username"
-                placeholder="engenheiro@ferrovia.com.br"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-              />
+          <form
+            onSubmit={handleSubmit}
+            noValidate
+            className="max-w-md space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl backdrop-blur-xl"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="email">E-mail corporativo</Label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  placeholder="nome@empresa.com.br"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  className="h-11 rounded-xl pl-10"
+                  aria-invalid={!!error || undefined}
+                  autoFocus
+                  required
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="field-group">
-            <label htmlFor="password">Senha</label>
-            <div className="input-wrapper">
-              <LockIcon />
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                placeholder="Digite sua senha"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-              <button
-                type="button"
-                className="password-toggle"
-                aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                onClick={() => setShowPassword((current) => !current)}
-              >
-                <EyeIcon visible={showPassword} />
-              </button>
+            <div className="space-y-2">
+              <Label htmlFor="password">Senha</Label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="h-11 rounded-xl pr-11 pl-10"
+                  aria-invalid={!!error || undefined}
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </Button>
+              </div>
             </div>
-          </div>
 
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
+            {error && (
+              <Alert variant="destructive" role="alert">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <Button type="submit" className="h-11 w-full text-sm tracking-wide" disabled={submitting}>
+              {submitting ? <Loader2 className="animate-spin" /> : null}
+              {submitting ? 'Verificando…' : 'ENTRAR NO SISTEMA'}
+              {!submitting && <ArrowRight />}
+            </Button>
+
+            <p className="text-xs text-muted-foreground">
+              Não tem acesso ou esqueceu a senha? Fale com o administrador do sistema — as contas são criadas somente pela
+              equipe responsável.
             </p>
-          )}
-
-          <button type="submit" className="submit-button" disabled={isSubmitting}>
-            {isSubmitting ? 'Verificando...' : 'Entrar'}
-          </button>
-        </form>
-
-        <p className="account-action">
-          Ainda não possui acesso?{' '}
-          <button type="button" onClick={onRegister}>Criar conta</button>
-        </p>
-
-        <p className="security-note">
-          Acesso restrito a usuários autorizados.
-        </p>
+          </form>
+        </div>
       </section>
     </main>
   )
 }
-

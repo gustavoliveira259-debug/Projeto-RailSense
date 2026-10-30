@@ -20,6 +20,7 @@ services:
     restart: always
     depends_on:
       - postgres
+      - broker
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
@@ -34,6 +35,8 @@ services:
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       SESSION_COOKIE_SAME_SITE: ${SESSION_COOKIE_SAME_SITE:-strict}
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+      # Leituras de vibração do ESP32 (railsense/sensor/vibracao).
+      MQTT_BROKER_URL: ${MQTT_BROKER_URL:-tcp://broker:1883}
     ports:
       - "8080:8080"
 

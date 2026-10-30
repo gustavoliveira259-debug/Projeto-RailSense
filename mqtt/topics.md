@@ -11,17 +11,34 @@ Recebe os valores de vibração coletados pelo ESP32.
 **Publicador:**
 ESP32
 
+**Assinante:**
+Backend (`VibracaoMqttListener`), quando `MQTT_BROKER_URL` está definido
+(no `docker-compose.yml`: `tcp://broker:1883`). Vazio desliga a assinatura, como no Render.
+
 **Formato da mensagem:**
-Valor numérico inteiro.
+JSON com o ID do dispositivo e a leitura bruta do ADC (0 a 4095).
 
 **Exemplo:**
 
-```text
-2048
+```json
+{"device":"esp32-01","valor":2048}
 ```
 
 **Frequência de envio:**
 1 segundo.
+
+### Vínculo com o eixo
+
+A mensagem não diz de qual eixo é a leitura. Em **Cadastros → Eixos**, preencha
+"Sensor de vibração" com o mesmo valor de `device` (ex.: `esp32-01`). Cada sensor
+fica em um único eixo. Leituras de um `device` sem eixo, de eixo desativado ou
+fora do formato são descartadas.
+
+O backend grava as leituras em `leituras_vibracao` e apaga as com mais de
+`VIBRACAO_RETENCAO_DIAS` dias (padrão 7). O frontend mostra o gráfico
+"Vibração em tempo real" na página do eixo e na de cada alerta, via
+`GET /api/eixos/{id}/vibracao?minutos=10` (1 a 60 minutos). A linha tracejada é
+`VIBRACAO_LIMIAR` (padrão 3000), o mesmo `limiar_captura` do firmware.
 
 ### Fluxo
 
@@ -32,8 +49,29 @@ railsense/sensor/vibracao
   ↓
 MQTT Broker
   ↓
-Backend
+Backend → leituras_vibracao → GET /api/eixos/{id}/vibracao → gráfico ao vivo
 ```
+
+### ESP32 pelo cabo USB (sem Wi-Fi)
+
+Quando a rede não deixa o ESP32 alcançar o broker (ex.: rede da escola), grave o
+firmware no modo USB. Ele escreve as mesmas mensagens na serial, e
+`hardware/serial_bridge.py` publica nos mesmos tópicos:
+
+```bash
+cd hardware
+pio run -e esp32dev-usb -t upload          # grava o firmware (porta detectada sozinha)
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt
+.venv/Scripts/python serial_bridge.py      # SERIAL_PORT e MQTT_BROKER opcionais (hardware/.env)
+```
+
+Feche o monitor serial do PlatformIO antes de rodar a ponte: só um programa
+pode usar a porta por vez.
+
+> Se houver um Mosquitto instalado direto no Windows além do container,
+> `localhost:1883` pode cair nele, e não no broker do compose. O ESP32 e o
+> backend precisam publicar e assinar no **mesmo** broker.
 
 ## Câmera do celular
 
