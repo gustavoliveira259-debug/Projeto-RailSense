@@ -12,7 +12,7 @@ Recebe os valores de vibração coletados pelo ESP32.
 ESP32
 
 **Formato da mensagem:**
-Valor numérico inteiro.
+Valor numérico inteiro: RMS da vibração no último segundo (leituras de 0 a 4095 no D34; 0 = parado).
 
 **Exemplo:**
 
@@ -61,7 +61,7 @@ python camera/camera_bridge.py
 **Exemplo:**
 
 ```json
-{"device":"esp32-01","valor":3120}
+{"device":"esp32-01","valor":245}
 ```
 
 O conteúdo é apenas informativo: qualquer mensagem nesse tópico dispara uma captura.
