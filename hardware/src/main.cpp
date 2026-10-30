@@ -1,22 +1,56 @@
+// Firmware do sensor de vibração do RailSense.
+//
+// Dois modos, escolhidos pelo ambiente do PlatformIO (hardware/platformio.ini):
+//   esp32dev      Wi-Fi + MQTT: publica direto no broker.
+//   esp32dev-usb  USB: escreve as mensagens na serial e hardware/serial_bridge.py
+//                 publica no broker. Não precisa de Wi-Fi.
+// Nos dois modos as mensagens e os tópicos são os mesmos (mqtt/topics.md).
+
+#include <Arduino.h>
+
+#ifndef RAILSENSE_USB
 #include <WiFi.h>
 #include <PubSubClient.h>
+#endif
 
 #define ssid "Wokwi-GUEST"
 #define password ""
 
 #define pot 14
 
+// Mesmo valor do campo "Sensor de vibração" do eixo em Cadastros.
+#define DEVICE_ID "esp32-01"
+
+#ifndef RAILSENSE_USB
 WiFiClient espClient;
 PubSubClient client(espClient);
 
 const char* mqtt_server = "192.168.56.1";
 const int mqtt_port = 1883;
+#endif
 
 // Acima deste valor o ESP pede uma foto ao celular (topico railsense/camera/capturar).
 const int limiar_captura = 3000;
 // Intervalo minimo entre dois pedidos de captura, para nao inundar o backend.
 const unsigned long intervalo_captura_ms = 10000;
 unsigned long ultima_captura = 0;
+
+#ifdef RAILSENSE_USB
+
+// Uma linha por mensagem: "<prefixo> <json>". O prefixo diz à ponte em qual tópico publicar:
+// VIB -> railsense/sensor/vibracao, CAP -> railsense/camera/capturar. Outras linhas são só log.
+void publicar(const char* prefixo, const char* mensagem) {
+  Serial.print(prefixo);
+  Serial.print(' ');
+  Serial.println(mensagem);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("RailSense: modo USB, mensagens pela serial");
+}
+
+#else
 
 void setup_wifi() {
   delay(10);
@@ -49,6 +83,15 @@ void reconnect() {
   }
 }
 
+void publicar(const char* prefixo, const char* mensagem) {
+  const char* topico = prefixo[0] == 'C' ? "railsense/camera/capturar" : "railsense/sensor/vibracao";
+  client.publish(topico, mensagem);
+  Serial.print("Enviado em ");
+  Serial.print(topico);
+  Serial.print(": ");
+  Serial.println(mensagem);
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -57,35 +100,27 @@ void setup() {
   client.setServer(mqtt_server, mqtt_port);
 }
 
+#endif
+
 void loop() {
 
+#ifndef RAILSENSE_USB
   if (!client.connected()) {
     reconnect();
   }
 
   client.loop();
+#endif
 
   int valor = analogRead(pot);
 
   char mensagem[64];
-  snprintf(mensagem, sizeof(mensagem), "{\"device\":\"esp32-01\",\"valor\":%d}", valor);
-
-  client.publish(
-    "railsense/sensor/vibracao",
-    mensagem
-  );
-
-  Serial.print("Enviado: ");
-  Serial.println(mensagem);
+  snprintf(mensagem, sizeof(mensagem), "{\"device\":\"" DEVICE_ID "\",\"valor\":%d}", valor);
+  publicar("VIB", mensagem);
 
   if (valor >= limiar_captura && (ultima_captura == 0 || millis() - ultima_captura >= intervalo_captura_ms)) {
-    char comando[64];
-    snprintf(comando, sizeof(comando), "{\"device\":\"esp32-01\",\"valor\":%d}", valor);
-    client.publish("railsense/camera/capturar", comando);
+    publicar("CAP", mensagem);
     ultima_captura = millis();
-
-    Serial.print("Captura solicitada: ");
-    Serial.println(comando);
   }
 
   delay(1000);
