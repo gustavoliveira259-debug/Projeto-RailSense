@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://railsense-backend-9ogg.onrender.com/api/:path*" },
+    { "source": "/logout", "destination": "https://railsense-backend-9ogg.onrender.com/logout" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
