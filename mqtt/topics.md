@@ -12,12 +12,12 @@ Recebe os valores de vibração coletados pelo ESP32.
 ESP32
 
 **Formato da mensagem:**
-Valor numérico inteiro.
+JSON com o id do dispositivo e a leitura do ADC (0-4095, média de 16 amostras).
 
 **Exemplo:**
 
-```text
-2048
+```json
+{"device":"esp32-01","valor":2048}
 ```
 
 **Frequência de envio:**
