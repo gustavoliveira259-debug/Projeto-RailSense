@@ -3,7 +3,7 @@
 
 #include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, MQTT_SERVER, MQTT_PORT (veja include/secrets.example.h)
 
-// Sensor analógico na placa de expansão: S -> GPIO34, V -> 3V3, G -> GND.
+// Módulo piezoelétrico de vibração na placa de expansão: S -> GPIO34, + -> V (3V3), - -> G.
 // Precisa ser um pino do ADC1 (GPIO32-39): o ADC2 (ex.: GPIO14) não lê com o Wi-Fi ligado.
 // GPIO34 é só entrada e não tem pull-up, ideal para sinal analógico.
 #define PINO_SENSOR 34
@@ -14,20 +14,34 @@
 #define TOPICO_LEITURA "railsense/sensor/vibracao"
 #define TOPICO_CAPTURA "railsense/camera/capturar"
 
-// Acima deste valor (0-4095) o ESP pede uma foto ao celular (topico railsense/camera/capturar).
-const int limiar_captura = 3000;
+// O módulo piezoelétrico só gera tensão no instante do impacto (fica em 0 parado).
+// Por isso o sensor é amostrado sem parar e, a cada janela, publicamos as métricas
+// usadas em análise de vibração de rolamentos: pico, RMS e número de impactos.
+const unsigned long periodo_amostra_us = 500;    // 2 kHz
+const unsigned long janela_ms = 1000;
+// Acima deste nível (0-4095) uma amostra conta como impacto (com histerese para não contar o mesmo duas vezes).
+const int limiar_impacto = 200;
+const int histerese_impacto = 50;
+// Se o pico da janela passar deste valor, o ESP pede uma foto ao celular (topico railsense/camera/capturar).
+// Calibre batendo no sensor e olhando o "pico" no Serial.
+const int limiar_captura = 2000;
 // Intervalo minimo entre dois pedidos de captura, para nao inundar o backend.
 const unsigned long intervalo_captura_ms = 10000;
-const unsigned long intervalo_leitura_ms = 1000;
-// Amostras por leitura, para reduzir o ruído do ADC.
-const int amostras = 16;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-unsigned long ultima_leitura = 0;
+unsigned long inicio_janela = 0;
+unsigned long ultima_amostra_us = 0;
 unsigned long ultima_captura = 0;
 unsigned long ultima_tentativa_mqtt = 0;
+
+// Acumuladores da janela atual.
+int pico = 0;
+double soma_quadrados = 0;
+unsigned long total_amostras = 0;
+int impactos = 0;
+bool em_impacto = false;
 
 void conectar_wifi() {
   Serial.printf("Conectando ao Wi-Fi %s", WIFI_SSID);
@@ -63,12 +77,47 @@ void conectar_mqtt() {
   }
 }
 
-int ler_sensor() {
-  long soma = 0;
-  for (int i = 0; i < amostras; i++) {
-    soma += analogRead(PINO_SENSOR);
+void amostrar() {
+  int valor = analogRead(PINO_SENSOR);
+
+  if (valor > pico) {
+    pico = valor;
   }
-  return soma / amostras;
+  soma_quadrados += (double)valor * valor;
+  total_amostras++;
+
+  if (!em_impacto && valor >= limiar_impacto) {
+    em_impacto = true;
+    impactos++;
+  } else if (em_impacto && valor < limiar_impacto - histerese_impacto) {
+    em_impacto = false;
+  }
+}
+
+void publicar_janela() {
+  int rms = total_amostras > 0 ? (int)sqrt(soma_quadrados / total_amostras) : 0;
+
+  char mensagem[96];
+  snprintf(mensagem, sizeof(mensagem),
+           "{\"device\":\"%s\",\"valor\":%d,\"rms\":%d,\"impactos\":%d}",
+           DEVICE_ID, pico, rms, impactos);
+  client.publish(TOPICO_LEITURA, mensagem);
+
+  Serial.print("Enviado: ");
+  Serial.println(mensagem);
+
+  if (pico >= limiar_captura && (ultima_captura == 0 || millis() - ultima_captura >= intervalo_captura_ms)) {
+    client.publish(TOPICO_CAPTURA, mensagem);
+    ultima_captura = millis();
+
+    Serial.print("Captura solicitada: ");
+    Serial.println(mensagem);
+  }
+
+  pico = 0;
+  soma_quadrados = 0;
+  total_amostras = 0;
+  impactos = 0;
 }
 
 void setup() {
@@ -97,25 +146,13 @@ void loop() {
   digitalWrite(PINO_LED, HIGH);
   client.loop();
 
-  if (millis() - ultima_leitura < intervalo_leitura_ms) {
-    return;
+  if (micros() - ultima_amostra_us >= periodo_amostra_us) {
+    ultima_amostra_us = micros();
+    amostrar();
   }
-  ultima_leitura = millis();
 
-  int valor = ler_sensor();
-
-  char mensagem[64];
-  snprintf(mensagem, sizeof(mensagem), "{\"device\":\"%s\",\"valor\":%d}", DEVICE_ID, valor);
-  client.publish(TOPICO_LEITURA, mensagem);
-
-  Serial.print("Enviado: ");
-  Serial.println(mensagem);
-
-  if (valor >= limiar_captura && (ultima_captura == 0 || millis() - ultima_captura >= intervalo_captura_ms)) {
-    client.publish(TOPICO_CAPTURA, mensagem);
-    ultima_captura = millis();
-
-    Serial.print("Captura solicitada: ");
-    Serial.println(mensagem);
+  if (millis() - inicio_janela >= janela_ms) {
+    inicio_janela = millis();
+    publicar_janela();
   }
 }
