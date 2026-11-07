@@ -95,16 +95,43 @@ class Backend:
         return resposta.json()
 
 
+def ler_quadro_mjpeg(resposta, limite_bytes=8 * 1024 * 1024):
+    """Extrai o primeiro JPEG completo de um stream MJPEG (multipart/x-mixed-replace)."""
+    buffer = b""
+    for pedaco in resposta.iter_content(chunk_size=16 * 1024):
+        buffer += pedaco
+        inicio = buffer.find(b"\xff\xd8")
+        if inicio != -1:
+            fim = buffer.find(b"\xff\xd9", inicio + 2)
+            if fim != -1:
+                return buffer[inicio:fim + 2]
+        if len(buffer) > limite_bytes:
+            break
+    raise RuntimeError("Stream MJPEG terminou sem um quadro JPEG completo.")
+
+
 def buscar_foto():
-    """Baixa a foto atual do celular e garante um JPEG abaixo do limite do backend."""
+    """Baixa a foto atual do celular e garante um JPEG abaixo do limite do backend.
+
+    Aceita uma URL de foto (ex.: IP Webcam /shot.jpg) ou de vídeo MJPEG (ex.: DroidCam /video),
+    da qual pega um único quadro.
+    """
     autenticacao = (CAMERA_USER, CAMERA_PASSWORD) if CAMERA_USER else None
-    resposta = requests.get(CAMERA_URL, auth=autenticacao, timeout=10)
-    resposta.raise_for_status()
+    # stream=True + with: a conexão é fechada logo após o quadro; o DroidCam gratuito aceita só uma.
+    with requests.get(CAMERA_URL, auth=autenticacao, timeout=10, stream=True) as resposta:
+        resposta.raise_for_status()
+        tipo = resposta.headers.get("Content-Type", "")
+        if tipo.startswith("text/html"):
+            # DroidCam responde uma página "DroidCam is Busy" quando outro cliente já está no stream.
+            ocupado = b"Busy" in resposta.content
+            raise RuntimeError("câmera ocupada por outro cliente (feche navegador/DroidCam Client no PC)"
+                               if ocupado else f"câmera respondeu HTML em vez de imagem ({CAMERA_URL})")
+        conteudo = ler_quadro_mjpeg(resposta) if tipo.startswith("multipart/") else resposta.content
 
-    if len(resposta.content) <= TAMANHO_MAXIMO and resposta.headers.get("Content-Type", "").startswith("image/jpeg"):
-        return resposta.content
+    if len(conteudo) <= TAMANHO_MAXIMO and (tipo.startswith("image/jpeg") or tipo.startswith("multipart/")):
+        return conteudo
 
-    imagem = Image.open(io.BytesIO(resposta.content)).convert("RGB")
+    imagem = Image.open(io.BytesIO(conteudo)).convert("RGB")
     if imagem.width > LARGURA_MAXIMA:
         imagem = imagem.resize((LARGURA_MAXIMA, round(imagem.height * LARGURA_MAXIMA / imagem.width)))
     for qualidade in (85, 70, 55, 40):

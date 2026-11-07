@@ -20,8 +20,8 @@ const JANELAS_MINUTOS = [5, 10, 30] as const
 const SEM_SINAL_APOS_SEGUNDOS = 15
 /** Intervalo entre leituras acima do qual a linha é interrompida, em vez de ligar os pontos por cima da falta de dados. */
 const LACUNA_MS = 5_000
-/** Teto do eixo vertical: a vibração típica fica bem abaixo do fundo de escala do ADC (4.095) e sumiria achatada. */
-const ESCALA_MAXIMA = 500
+/** Teto do eixo vertical: cobre todo o fundo de escala do ADC (4.095), então picos e o limiar de captura aparecem inteiros. */
+const ESCALA_MAXIMA = 5000
 
 type Ponto = { t: number; valor: number }
 /** valor null marca uma lacuna: o Recharts não desenha a linha através dela. */
@@ -213,7 +213,7 @@ export function VibrationLiveChart({ eixoId, eixoIdentificador }: VibrationLiveC
                     />
                     <YAxis
                       domain={[0, ESCALA_MAXIMA]}
-                      ticks={[0, 100, 200, 300, 400, 500]}
+                      ticks={[0, 1000, 2000, 3000, 4000, 5000]}
                       // Leituras acima da escala ficam cortadas no topo (o pico real aparece no indicador acima).
                       allowDataOverflow
                       tickFormatter={(v: number) => formatInteger(v)}
