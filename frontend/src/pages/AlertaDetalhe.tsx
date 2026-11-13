@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { mensagemDeErro } from '@/lib/errors'
 import { formatDateTime, formatRelative, formatScore } from '@/lib/format'
 import { CLASSIFICACAO, NIVEL, PRIORIDADE, PRIORIDADE_PADRAO, STATUS_ALERTA, TIPO_EVIDENCIA } from '@/lib/labels'
+import { useGestor } from '@/auth/useAuth'
 
 function Campo({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -57,7 +58,7 @@ function PainelDecisao({ alerta }: { alerta: AlertaDetalheType }) {
   return (
     <Card className="border-warning/40 ring-warning/30">
       <CardHeader>
-        <CardTitle>Decisão do engenheiro</CardTitle>
+        <CardTitle>Decisão do gestor</CardTitle>
         <CardDescription>
           Compare a captura atual com a referência e registre sua conclusão. A decisão fica registrada com seu nome e
           não pode ser desfeita.
@@ -180,6 +181,7 @@ function AbrirOrdem({ alerta }: { alerta: AlertaDetalheType }) {
 
 export default function AlertaDetalhe() {
   const id = Number(useParams().id)
+  const gestor = useGestor()
   const query = useQuery({
     queryKey: ['alerta', id],
     queryFn: () => alertas.detalhar(id),
@@ -231,7 +233,7 @@ export default function AlertaDetalhe() {
           </span>
         }
         description={`Gerado ${formatRelative(alerta.criadoEm)} · ${formatDateTime(alerta.criadoEm)}`}
-        actions={alerta.status === 'CONFIRMADO' && <AbrirOrdem alerta={alerta} />}
+        actions={alerta.status === 'CONFIRMADO' && gestor && <AbrirOrdem alerta={alerta} />}
       />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
@@ -287,7 +289,20 @@ export default function AlertaDetalhe() {
         </div>
 
         <div className="space-y-4">
-          {alerta.status === 'EM_ANALISE' && <PainelDecisao alerta={alerta} />}
+          {alerta.status === 'EM_ANALISE' &&
+            (gestor ? (
+              <PainelDecisao alerta={alerta} />
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Aguardando decisão do gestor</CardTitle>
+                  <CardDescription>
+                    O gestor confirma o vazamento ou marca falso positivo. Se confirmado, ele abre a ordem de
+                    manutenção, que aparece para você em Ordens de manutenção.
+                  </CardDescription>
+                </CardHeader>
+              </Card>
+            ))}
 
           <Card>
             <CardHeader>

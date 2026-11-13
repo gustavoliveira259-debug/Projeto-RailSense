@@ -33,6 +33,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { mensagemDeErro } from '@/lib/errors'
 import { formatDateTime, formatRelative } from '@/lib/format'
 import { ACAO_ORDEM, PRIORIDADE, STATUS_ORDEM, TRANSICOES_ORDEM } from '@/lib/labels'
+import { useGestor } from '@/auth/useAuth'
 
 const FILTROS: { value: StatusOrdem | 'TODAS'; label: string }[] = [
   { value: 'ABERTA', label: 'Abertas' },
@@ -52,6 +53,7 @@ const IRREVERSIVEL: Partial<Record<StatusOrdem, string>> = {
 
 export default function Ordens() {
   const queryClient = useQueryClient()
+  const gestor = useGestor()
   const [params, setParams] = useSearchParams()
   const filtro = (params.get('status') as StatusOrdem | 'TODAS' | null) ?? 'ABERTA'
   const status = filtro === 'TODAS' ? undefined : filtro
@@ -142,7 +144,8 @@ export default function Ordens() {
               </TableMessage>
             ) : (
               query.data.content.map((ordem) => {
-                const proximos = TRANSICOES_ORDEM[ordem.status]
+                // O engenheiro inicia e conclui; cancelar é do gestor.
+                const proximos = TRANSICOES_ORDEM[ordem.status].filter((para) => gestor || para !== 'CANCELADA')
                 return (
                   <TableRow key={ordem.id}>
                     <TableCell className="max-w-80 pl-4 whitespace-normal">

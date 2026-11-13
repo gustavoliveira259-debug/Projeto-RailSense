@@ -22,6 +22,7 @@ import { mensagemDeErro } from '@/lib/errors'
 import { formatDateTime, formatRelative, formatScore } from '@/lib/format'
 import { CLASSIFICACAO, NIVEL, STATUS_ALERTA } from '@/lib/labels'
 import { cn } from '@/lib/utils'
+import { useGestor } from '@/auth/useAuth'
 
 /** Espelha ImageFileValidator e spring.servlet.multipart.max-file-size (10MB). */
 const TIPOS_ACEITOS = ['image/jpeg', 'image/png', 'image/webp']
@@ -161,6 +162,7 @@ function EnviarImagem({ eixoId, ativo }: { eixoId: number; ativo: boolean }) {
 
 function Capturas({ eixoId }: { eixoId: number }) {
   const queryClient = useQueryClient()
+  const gestor = useGestor()
   const [page, setPage] = useState(0)
   const query = useQuery({
     queryKey: ['eixo', eixoId, 'imagens', page],
@@ -205,16 +207,18 @@ function Capturas({ eixoId }: { eixoId: number }) {
                 <Star className="size-3.5 fill-current" /> Em uso como referência
               </span>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full"
-                disabled={marcar.isPending}
-                onClick={() => marcar.mutate(imagem.id)}
-              >
-                {marcar.isPending && marcar.variables === imagem.id ? <Loader2 className="animate-spin" /> : <Star />}
-                Definir como referência
-              </Button>
+              gestor && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  disabled={marcar.isPending}
+                  onClick={() => marcar.mutate(imagem.id)}
+                >
+                  {marcar.isPending && marcar.variables === imagem.id ? <Loader2 className="animate-spin" /> : <Star />}
+                  Definir como referência
+                </Button>
+              )
             )}
           </div>
         ))}

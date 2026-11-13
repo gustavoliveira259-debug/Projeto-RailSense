@@ -12,10 +12,12 @@ import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { TIPO_PATIO } from '@/lib/labels'
+import { useGestor } from '@/auth/useAuth'
 
 const COLUNAS = 4
 
 export default function Frota() {
+  const gestor = useGestor()
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const patioLinhaId = params.get('patio') ? Number(params.get('patio')) : undefined
@@ -48,9 +50,11 @@ export default function Frota() {
         title="Frota"
         description="Vagões monitorados e seus eixos. Selecione um vagão para ver os rolamentos e o histórico de capturas."
         actions={
-          <Button variant="outline" asChild>
-            <Link to="/cadastros">Gerenciar cadastros</Link>
-          </Button>
+          gestor && (
+            <Button variant="outline" asChild>
+              <Link to="/cadastros">Gerenciar cadastros</Link>
+            </Button>
+          )
         }
       />
 
@@ -96,11 +100,17 @@ export default function Frota() {
                 <EmptyState
                   icon={TrainFront}
                   title="Nenhum vagão encontrado"
-                  description="Cadastre pátios, vagões e eixos em Cadastros para começar o monitoramento."
+                  description={
+                    gestor
+                      ? 'Cadastre pátios, vagões e eixos em Cadastros para começar o monitoramento.'
+                      : 'O gestor ainda não cadastrou vagões para monitorar.'
+                  }
                   action={
-                    <Button size="sm" asChild>
-                      <Link to="/cadastros?aba=vagoes">Cadastrar vagão</Link>
-                    </Button>
+                    gestor && (
+                      <Button size="sm" asChild>
+                        <Link to="/cadastros?aba=vagoes">Cadastrar vagão</Link>
+                      </Button>
+                    )
                   }
                 />
               </TableMessage>

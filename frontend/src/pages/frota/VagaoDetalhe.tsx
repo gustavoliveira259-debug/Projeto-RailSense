@@ -10,8 +10,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { NIVEL } from '@/lib/labels'
+import { useGestor } from '@/auth/useAuth'
 
 export default function VagaoDetalhe() {
+  const gestor = useGestor()
   const id = Number(useParams().id)
   const vagao = useQuery({ queryKey: ['vagao', id], queryFn: () => vagoes.detalhar(id) })
   const listaEixos = useQuery({
@@ -79,9 +81,11 @@ export default function VagaoDetalhe() {
               icon={Cog}
               title="Nenhum eixo cadastrado neste vagão"
               action={
-                <Button size="sm" asChild>
-                  <Link to="/cadastros?aba=eixos">Cadastrar eixo</Link>
-                </Button>
+                gestor && (
+                  <Button size="sm" asChild>
+                    <Link to="/cadastros?aba=eixos">Cadastrar eixo</Link>
+                  </Button>
+                )
               }
             />
           ) : (

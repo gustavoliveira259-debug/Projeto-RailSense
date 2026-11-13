@@ -73,7 +73,7 @@ export default function App() {
           <Route
             element={
               <Suspense fallback={<Carregando />}>
-                <RequireRole roles={['ENGENHEIRO']} />
+                <RequireRole roles={['ENGENHEIRO', 'GESTOR']} />
               </Suspense>
             }
           >
@@ -84,6 +84,15 @@ export default function App() {
             <Route path="/frota" element={<Frota />} />
             <Route path="/frota/vagoes/:id" element={<VagaoDetalhe />} />
             <Route path="/frota/eixos/:id" element={<EixoDetalhe />} />
+          </Route>
+
+          <Route
+            element={
+              <Suspense fallback={<Carregando />}>
+                <RequireRole roles={['GESTOR']} />
+              </Suspense>
+            }
+          >
             <Route path="/cadastros" element={<Cadastros />} />
           </Route>
 

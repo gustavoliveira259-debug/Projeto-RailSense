@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatDateTime, formatInteger } from '@/lib/format'
 import { useSegundosDesde } from '@/lib/useSegundosDesde'
 import { cn } from '@/lib/utils'
+import { useGestor } from '@/auth/useAuth'
 
 /** O ESP32 publica 1 leitura por segundo; buscar a cada 2 s mantém o gráfico andando sem sobrecarregar a API. */
 const ATUALIZAR_A_CADA = 2_000
@@ -70,6 +71,7 @@ type VibrationLiveChartProps = {
  * Fonte: GET /api/eixos/{id}/vibracao (leituras do MQTT gravadas pelo backend).
  */
 export function VibrationLiveChart({ eixoId, eixoIdentificador }: VibrationLiveChartProps) {
+  const gestor = useGestor()
   const gradienteId = useId().replace(/:/g, '')
   const [minutos, setMinutos] = useState<number>(10)
   const query = useQuery({
@@ -148,9 +150,11 @@ export function VibrationLiveChart({ eixoId, eixoIdentificador }: VibrationLiveC
             title="Nenhum sensor vinculado a este eixo"
             description='Informe o ID do ESP32 (o campo "device" que ele publica) no cadastro do eixo para ver a vibração aqui.'
             action={
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/cadastros?aba=eixos">Abrir cadastro de eixos</Link>
-              </Button>
+              gestor && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/cadastros?aba=eixos">Abrir cadastro de eixos</Link>
+                </Button>
+              )
             }
           />
         ) : (
