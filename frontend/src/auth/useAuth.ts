@@ -24,5 +24,10 @@ export function useUser(): UsuarioSessao {
   return user
 }
 
-/** Tela inicial de cada papel: o ADMIN só gerencia contas; o ENGENHEIRO opera o monitoramento. */
+/** True para o GESTOR, único papel que altera cadastros e referência, decide alertas e cancela ordens. */
+export function useGestor() {
+  return useAuth().hasRole('GESTOR')
+}
+
+/** Tela inicial de cada papel: o ADMIN só gerencia contas; GESTOR e ENGENHEIRO vão ao monitoramento. */
 export const homeDoPapel = (papel: Papel) => (papel === 'ADMIN' ? '/usuarios' : '/painel')

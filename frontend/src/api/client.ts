@@ -1,8 +1,9 @@
 /**
  * Funções de acesso à API do RailSense, uma por endpoint do backend.
  *
- * Autorização (SecurityConfig): /api/usuarios/** só ADMIN; o restante de /api/**
- * só ENGENHEIRO; /api/auth/** qualquer usuário logado.
+ * Autorização (SecurityConfig): /api/usuarios/** só ADMIN; leitura de /api/** ENGENHEIRO e GESTOR;
+ * envio de imagens e andamento de ordens também ENGENHEIRO (cancelar só GESTOR); demais escritas
+ * só GESTOR; /api/auth/** qualquer usuário logado.
  */
 import { request } from '@/services/http'
 import type {

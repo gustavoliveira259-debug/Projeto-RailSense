@@ -42,18 +42,21 @@ import { cn } from '@/lib/utils'
 type NavItem = { to: string; label: string; icon: LucideIcon }
 type NavSection = { title: string; items: NavItem[] }
 
-/** Menu por papel, alinhado ao SecurityConfig: o ADMIN só enxerga a gestão de contas. */
+const MONITORAMENTO: NavSection = {
+  title: 'Monitoramento',
+  items: [
+    { to: '/painel', label: 'Painel', icon: LayoutDashboard },
+    { to: '/alertas', label: 'Alertas', icon: Bell },
+    { to: '/ordens', label: 'Ordens de manutenção', icon: ClipboardList },
+    { to: '/frota', label: 'Frota', icon: TrainFront },
+  ],
+}
+
+/** Menu por papel, alinhado ao SecurityConfig: ADMIN só contas; só o GESTOR vê Cadastros. */
 const NAVEGACAO: Record<Papel, NavSection[]> = {
-  ENGENHEIRO: [
-    {
-      title: 'Monitoramento',
-      items: [
-        { to: '/painel', label: 'Painel', icon: LayoutDashboard },
-        { to: '/alertas', label: 'Alertas', icon: Bell },
-        { to: '/ordens', label: 'Ordens de manutenção', icon: ClipboardList },
-        { to: '/frota', label: 'Frota', icon: TrainFront },
-      ],
-    },
+  ENGENHEIRO: [MONITORAMENTO],
+  GESTOR: [
+    MONITORAMENTO,
     {
       title: 'Configuração',
       items: [{ to: '/cadastros', label: 'Cadastros', icon: Database }],

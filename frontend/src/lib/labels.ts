@@ -88,7 +88,14 @@ export const PRIORIDADE_PADRAO: Record<NivelAlerta, Prioridade> = {
 }
 
 export const PAPEL: Record<Papel, { label: string; descricao: string }> = {
-  ENGENHEIRO: { label: 'Engenheiro', descricao: 'Opera o monitoramento: alertas, ordens, imagens e cadastros.' },
+  ENGENHEIRO: {
+    label: 'Engenheiro',
+    descricao: 'Visualiza o monitoramento e atende as ordens de manutenção (inicia e conclui).',
+  },
+  GESTOR: {
+    label: 'Gestor',
+    descricao: 'Administra o monitoramento: cadastros da frota, imagem de referência, decisão de alertas e ordens.',
+  },
   ADMIN: { label: 'Administrador', descricao: 'Gerencia contas de usuário. Não acessa o monitoramento.' },
 }
 

@@ -6,7 +6,7 @@
  * Ao mudar um DTO no backend, atualize o tipo correspondente aqui.
  */
 
-export type Papel = 'ENGENHEIRO' | 'ADMIN'
+export type Papel = 'ENGENHEIRO' | 'GESTOR' | 'ADMIN'
 export type TipoPatioLinha = 'PATIO' | 'LINHA'
 export type Classificacao = 'NORMAL' | 'SUSPEITO' | 'VAZAMENTO'
 export type NivelAlerta = 'BAIXO' | 'MEDIO' | 'CRITICO'
