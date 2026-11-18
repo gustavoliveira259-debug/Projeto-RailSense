@@ -1,3 +1,14 @@
+// Firmware do sensor de vibração do RailSense.
+//
+// Dois modos, escolhidos pelo ambiente do PlatformIO (hardware/platformio.ini):
+//   esp32dev      Wi-Fi + MQTT: publica direto no broker.
+//   esp32dev-usb  USB: escreve as mensagens na serial e hardware/serial_bridge.py
+//                 publica no broker. Não precisa de Wi-Fi.
+// Nos dois modos as mensagens e os tópicos são os mesmos (mqtt/topics.md).
+
+#include <Arduino.h>
+
+#ifndef RAILSENSE_USB
 #include <WiFi.h>
 #include <PubSubClient.h>
 
@@ -5,14 +16,16 @@
 #error "Falta hardware/include/secrets.h: copie include/secrets.example.h para include/secrets.h e preencha."
 #endif
 #include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, MQTT_SERVER, MQTT_PORT (veja include/secrets.example.h)
+#endif
 
 // Módulo piezoelétrico de vibração na placa de expansão: S -> GPIO34, + -> V (3V3), - -> G.
 // Precisa ser um pino do ADC1 (GPIO32-39): o ADC2 (ex.: GPIO14) não lê com o Wi-Fi ligado.
 // GPIO34 é só entrada e não tem pull-up, ideal para sinal analógico.
 #define PINO_SENSOR 34
-// LED azul da ESP32 DevKit: aceso = conectado ao broker.
+// LED azul da ESP32 DevKit: aceso = conectado ao broker (no modo USB, aceso = rodando).
 #define PINO_LED 2
 
+// Mesmo valor do campo "Sensor de vibração" do eixo em Cadastros.
 #define DEVICE_ID "esp32-01"
 #define TOPICO_LEITURA "railsense/sensor/vibracao"
 #define TOPICO_CAPTURA "railsense/camera/capturar"
@@ -31,13 +44,9 @@ const int limiar_captura = 2000;
 // Intervalo minimo entre dois pedidos de captura, para nao inundar o backend.
 const unsigned long intervalo_captura_ms = 10000;
 
-WiFiClient espClient;
-PubSubClient client(espClient);
-
 unsigned long inicio_janela = 0;
 unsigned long ultima_amostra_us = 0;
 unsigned long ultima_captura = 0;
-unsigned long ultima_tentativa_mqtt = 0;
 
 // Acumuladores da janela atual.
 int pico = 0;
@@ -45,6 +54,23 @@ double soma_quadrados = 0;
 unsigned long total_amostras = 0;
 int impactos = 0;
 bool em_impacto = false;
+
+#ifdef RAILSENSE_USB
+
+// Uma linha por mensagem: "<prefixo> <json>". O prefixo diz à ponte em qual tópico publicar:
+// VIB -> railsense/sensor/vibracao, CAP -> railsense/camera/capturar. Outras linhas são só log.
+void publicar(const char* topico, const char* mensagem) {
+  Serial.print(strcmp(topico, TOPICO_CAPTURA) == 0 ? "CAP" : "VIB");
+  Serial.print(' ');
+  Serial.println(mensagem);
+}
+
+#else
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+unsigned long ultima_tentativa_mqtt = 0;
 
 // Potência do rádio, da menor para a maior. Na potência máxima o pico de corrente derrubava
 // a placa pelo USB (a COM some e volta em loop logo após "Conectando ao Wi-Fi"); potência
@@ -100,6 +126,13 @@ void conectar_mqtt() {
   }
 }
 
+void publicar(const char* topico, const char* mensagem) {
+  client.publish(topico, mensagem);
+  Serial.printf("Enviado em %s: %s\n", topico, mensagem);
+}
+
+#endif
+
 void amostrar() {
   int valor = analogRead(PINO_SENSOR);
 
@@ -124,17 +157,11 @@ void publicar_janela() {
   snprintf(mensagem, sizeof(mensagem),
            "{\"device\":\"%s\",\"valor\":%d,\"rms\":%d,\"impactos\":%d}",
            DEVICE_ID, pico, rms, impactos);
-  client.publish(TOPICO_LEITURA, mensagem);
-
-  Serial.print("Enviado: ");
-  Serial.println(mensagem);
+  publicar(TOPICO_LEITURA, mensagem);
 
   if (pico >= limiar_captura && (ultima_captura == 0 || millis() - ultima_captura >= intervalo_captura_ms)) {
-    client.publish(TOPICO_CAPTURA, mensagem);
+    publicar(TOPICO_CAPTURA, mensagem);
     ultima_captura = millis();
-
-    Serial.print("Captura solicitada: ");
-    Serial.println(mensagem);
   }
 
   pico = 0;
@@ -151,11 +178,17 @@ void setup() {
   analogReadResolution(12);                      // 0-4095
   analogSetPinAttenuation(PINO_SENSOR, ADC_11db); // faixa de ~0 a 3,3 V
 
+#ifdef RAILSENSE_USB
+  Serial.println("RailSense: modo USB, mensagens pela serial");
+  digitalWrite(PINO_LED, HIGH);
+#else
   conectar_wifi();
   client.setServer(MQTT_SERVER, MQTT_PORT);
+#endif
 }
 
 void loop() {
+#ifndef RAILSENSE_USB
   if (WiFi.status() != WL_CONNECTED) {
     digitalWrite(PINO_LED, LOW);
     conectar_wifi();
@@ -168,6 +201,7 @@ void loop() {
   }
   digitalWrite(PINO_LED, HIGH);
   client.loop();
+#endif
 
   if (micros() - ultima_amostra_us >= periodo_amostra_us) {
     ultima_amostra_us = micros();

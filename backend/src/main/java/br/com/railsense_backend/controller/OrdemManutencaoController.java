@@ -5,6 +5,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -47,7 +48,9 @@ public class OrdemManutencaoController {
 
     @PatchMapping("/{id}/status")
     public OrdemManutencaoResponse atualizarStatus(@PathVariable Long id,
-            @Valid @RequestBody StatusOrdemRequest request) {
-        return service.atualizarStatus(id, request.status());
+            @Valid @RequestBody StatusOrdemRequest request, Authentication authentication) {
+        boolean gestor = authentication.getAuthorities().stream()
+            .anyMatch(a -> "ROLE_GESTOR".equals(a.getAuthority()));
+        return service.atualizarStatus(id, request.status(), gestor);
     }
 }

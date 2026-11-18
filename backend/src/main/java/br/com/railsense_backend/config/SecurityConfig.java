@@ -62,8 +62,14 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").authenticated()
                 // ADMIN: só gestão de contas (criar, editar, papel, senha, ativar/desativar).
                 .requestMatchers("/api/usuarios/**").hasRole("ADMIN")
-                // ENGENHEIRO: todo o monitoramento (cadastros, imagens, alertas, ordens).
-                .requestMatchers("/api/**").hasRole("ENGENHEIRO")
+                // Leitura do monitoramento: ENGENHEIRO e GESTOR.
+                .requestMatchers(HttpMethod.GET, "/api/**").hasAnyRole("ENGENHEIRO", "GESTOR")
+                // Envio de fotos (a câmera usa uma conta ENGENHEIRO) e andamento das ordens;
+                // o OrdemManutencaoService só deixa o GESTOR cancelar.
+                .requestMatchers(HttpMethod.POST, "/api/imagens").hasAnyRole("ENGENHEIRO", "GESTOR")
+                .requestMatchers(HttpMethod.PATCH, "/api/ordens/*/status").hasAnyRole("ENGENHEIRO", "GESTOR")
+                // Demais escritas (cadastros, baseline, decisão de alertas, abertura de ordens): só GESTOR.
+                .requestMatchers("/api/**").hasRole("GESTOR")
                 .anyRequest().authenticated())
             .addFilterBefore(new SessaoAtualizadaFilter(usuarios, securityContextRepository),
                 AuthorizationFilter.class)

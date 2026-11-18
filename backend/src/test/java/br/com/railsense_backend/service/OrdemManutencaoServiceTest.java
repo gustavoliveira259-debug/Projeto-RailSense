@@ -16,6 +16,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import br.com.railsense_backend.dto.request.OrdemManutencaoRequest;
 import br.com.railsense_backend.enums.NivelAlerta;
@@ -109,7 +110,7 @@ class OrdemManutencaoServiceTest {
         var o = ordem(de, alerta(StatusAlerta.CONFIRMADO, NivelAlerta.MEDIO));
         when(ordens.findById(1L)).thenReturn(Optional.of(o));
 
-        assertThat(service.atualizarStatus(1L, para).status()).isEqualTo(para);
+        assertThat(service.atualizarStatus(1L, para, true).status()).isEqualTo(para);
     }
 
     @ParameterizedTest
@@ -124,7 +125,7 @@ class OrdemManutencaoServiceTest {
         var o = ordem(de, alerta(StatusAlerta.CONFIRMADO, NivelAlerta.MEDIO));
         when(ordens.findById(1L)).thenReturn(Optional.of(o));
 
-        assertThatThrownBy(() -> service.atualizarStatus(1L, para)).isInstanceOf(RegraNegocioException.class);
+        assertThatThrownBy(() -> service.atualizarStatus(1L, para, true)).isInstanceOf(RegraNegocioException.class);
         assertThat(o.getStatus()).isEqualTo(de);
     }
 
@@ -133,7 +134,7 @@ class OrdemManutencaoServiceTest {
         Alerta alerta = alerta(StatusAlerta.CONFIRMADO, NivelAlerta.CRITICO);
         when(ordens.findById(1L)).thenReturn(Optional.of(ordem(StatusOrdem.EM_ANDAMENTO, alerta)));
 
-        service.atualizarStatus(1L, StatusOrdem.CONCLUIDA);
+        service.atualizarStatus(1L, StatusOrdem.CONCLUIDA, false);
 
         assertThat(alerta.getStatus()).isEqualTo(StatusAlerta.FECHADO);
     }
@@ -143,8 +144,26 @@ class OrdemManutencaoServiceTest {
         Alerta alerta = alerta(StatusAlerta.CONFIRMADO, NivelAlerta.CRITICO);
         when(ordens.findById(1L)).thenReturn(Optional.of(ordem(StatusOrdem.ABERTA, alerta)));
 
-        service.atualizarStatus(1L, StatusOrdem.CANCELADA);
+        service.atualizarStatus(1L, StatusOrdem.CANCELADA, true);
 
         assertThat(alerta.getStatus()).isEqualTo(StatusAlerta.CONFIRMADO);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ABERTA, EM_ANDAMENTO", "EM_ANDAMENTO, CONCLUIDA"})
+    void engenheiroIniciaEConcluiOrdem(StatusOrdem de, StatusOrdem para) {
+        when(ordens.findById(1L)).thenReturn(Optional.of(ordem(de, alerta(StatusAlerta.CONFIRMADO, NivelAlerta.MEDIO))));
+
+        assertThat(service.atualizarStatus(1L, para, false).status()).isEqualTo(para);
+    }
+
+    @Test
+    void engenheiroNaoCancelaOrdem() {
+        var o = ordem(StatusOrdem.ABERTA, alerta(StatusAlerta.CONFIRMADO, NivelAlerta.MEDIO));
+
+        assertThatThrownBy(() -> service.atualizarStatus(1L, StatusOrdem.CANCELADA, false))
+            .isInstanceOf(AccessDeniedException.class);
+        assertThat(o.getStatus()).isEqualTo(StatusOrdem.ABERTA);
+        verify(ordens, never()).findById(any());
     }
 }

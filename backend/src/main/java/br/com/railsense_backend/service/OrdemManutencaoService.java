@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,7 +80,11 @@ public class OrdemManutencaoService {
     }
 
     @Transactional
-    public OrdemManutencaoResponse atualizarStatus(Long ordemId, StatusOrdem novo) {
+    public OrdemManutencaoResponse atualizarStatus(Long ordemId, StatusOrdem novo, boolean gestor) {
+        // O ENGENHEIRO atende a ordem (inicia e conclui); cancelar é decisão do GESTOR.
+        if (novo == StatusOrdem.CANCELADA && !gestor) {
+            throw new AccessDeniedException("Só o gestor pode cancelar uma ordem de manutenção.");
+        }
         OrdemManutencao ordem = ordens.findById(ordemId)
             .orElseThrow(() -> new OrdemManutencaoNotFoundException(ordemId));
         if (!TRANSICOES.get(ordem.getStatus()).contains(novo)) {

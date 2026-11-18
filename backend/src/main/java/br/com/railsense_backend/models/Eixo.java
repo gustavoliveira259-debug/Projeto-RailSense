@@ -30,6 +30,10 @@ public class Eixo extends BaseEntity {
     @Column(name = "identificador_unico", unique = true, nullable = false)
     private String identificadorUnico;
 
+    /** Campo "device" das mensagens do ESP32 em railsense/sensor/vibracao; opcional. */
+    @Column(name = "sensor_dispositivo", unique = true)
+    private String sensorDispositivo;
+
     @Builder.Default
     private boolean ativo = true;
 }

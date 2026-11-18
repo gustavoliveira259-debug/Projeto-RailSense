@@ -82,6 +82,7 @@ public class EixoController {
                 .vagao(buscarVagao(request.vagaoId()))
                 .posicao(request.posicao())
                 .identificadorUnico(request.identificadorUnico())
+                .sensorDispositivo(request.sensorDispositivoNormalizado())
                 .ativo(true)
                 .build());
         return ResponseEntity.status(HttpStatus.CREATED).body(EixoResponse.from(salvo));
@@ -93,6 +94,7 @@ public class EixoController {
         eixo.setVagao(buscarVagao(request.vagaoId()));
         eixo.setPosicao(request.posicao());
         eixo.setIdentificadorUnico(request.identificadorUnico());
+        eixo.setSensorDispositivo(request.sensorDispositivoNormalizado());
         return EixoResponse.from(eixos.save(eixo));
     }
 
