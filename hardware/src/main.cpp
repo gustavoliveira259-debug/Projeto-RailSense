@@ -1,132 +1,181 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 
-#define ssid "linksys"
-#define password ""
+#if !__has_include("secrets.h")
+#error "Falta hardware/include/secrets.h: copie include/secrets.example.h para include/secrets.h e preencha."
+#endif
+#include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, MQTT_SERVER, MQTT_PORT (veja include/secrets.example.h)
 
-// Sinal do modulo do piezo. Precisa ser ADC1 (GPIO 32-39): o ADC2 nao le com Wi-Fi ligado.
-#define sensor 34
-// Alimenta o modulo (VCC) com 3,3 V: deste lado da placa nao ha pino 3V3.
-#define alimentacao_sensor 33
+// Módulo piezoelétrico de vibração na placa de expansão: S -> GPIO34, + -> V (3V3), - -> G.
+// Precisa ser um pino do ADC1 (GPIO32-39): o ADC2 (ex.: GPIO14) não lê com o Wi-Fi ligado.
+// GPIO34 é só entrada e não tem pull-up, ideal para sinal analógico.
+#define PINO_SENSOR 34
+// LED azul da ESP32 DevKit: aceso = conectado ao broker.
+#define PINO_LED 2
 
-// Amostras lidas por envio (~2000/s). O valor enviado e o RMS dessas amostras.
-const int amostras = 2000;
-const int intervalo_amostra_us = 500;
+#define DEVICE_ID "esp32-01"
+#define TOPICO_LEITURA "railsense/sensor/vibracao"
+#define TOPICO_CAPTURA "railsense/camera/capturar"
+
+// O módulo piezoelétrico só gera tensão no instante do impacto (fica em 0 parado).
+// Por isso o sensor é amostrado sem parar e, a cada janela, publicamos as métricas
+// usadas em análise de vibração de rolamentos: pico, RMS e número de impactos.
+const unsigned long periodo_amostra_us = 500;    // 2 kHz
+const unsigned long janela_ms = 1000;
+// Acima deste nível (0-4095) uma amostra conta como impacto (com histerese para não contar o mesmo duas vezes).
+const int limiar_impacto = 200;
+const int histerese_impacto = 50;
+// Se o pico da janela passar deste valor, o ESP pede uma foto ao celular (topico railsense/camera/capturar).
+// Calibre batendo no sensor e olhando o "pico" no Serial.
+const int limiar_captura = 2000;
+// Intervalo minimo entre dois pedidos de captura, para nao inundar o backend.
+const unsigned long intervalo_captura_ms = 10000;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-const char* mqtt_server = "10.110.12.99";
-const int mqtt_port = 1884;
-
-// RMS a partir do qual o ESP pede uma foto ao celular (topico railsense/camera/capturar).
-// Calibrar: deixar acima do valor do rolamento bom com o motor ligado.
-const int limiar_captura = 200;
-// Intervalo minimo entre dois pedidos de captura, para nao inundar o backend.
-const unsigned long intervalo_captura_ms = 10000;
+unsigned long inicio_janela = 0;
+unsigned long ultima_amostra_us = 0;
 unsigned long ultima_captura = 0;
+unsigned long ultima_tentativa_mqtt = 0;
 
-void setup_wifi() {
-  delay(10);
+// Acumuladores da janela atual.
+int pico = 0;
+double soma_quadrados = 0;
+unsigned long total_amostras = 0;
+int impactos = 0;
+bool em_impacto = false;
 
-  Serial.println("Conectando ao Wi-Fi...");
+// Potência do rádio, da menor para a maior. Na potência máxima o pico de corrente derrubava
+// a placa pelo USB (a COM some e volta em loop logo após "Conectando ao Wi-Fi"); potência
+// baixa demais às vezes não alcança o roteador. Começa baixo e só sobe se não conectar.
+const wifi_power_t potencias_wifi[] = {WIFI_POWER_11dBm, WIFI_POWER_15dBm, WIFI_POWER_17dBm};
+const unsigned long tempo_por_potencia_ms = 8000;
 
+void conectar_wifi() {
   WiFi.mode(WIFI_STA);
-  // Potencia menor = pico de corrente menor ao ligar o radio (evita queda da alimentacao pelo USB).
-  WiFi.setTxPower(WIFI_POWER_15dBm);
 
-  // DIAGNOSTICO TEMPORARIO: lista as redes visiveis e o sinal (RSSI em dBm).
-  int redes = WiFi.scanNetworks();
-  for (int i = 0; i < redes; i++) {
-    Serial.printf("rede: %s  sinal: %d dBm  canal: %d\n", WiFi.SSID(i).c_str(), WiFi.RSSI(i), WiFi.channel(i));
+  for (wifi_power_t potencia : potencias_wifi) {
+    Serial.printf("Conectando ao Wi-Fi %s (potencia %.1f dBm)", WIFI_SSID, potencia / 4.0);
+    WiFi.disconnect();
+    // Aplicada antes e depois do begin: em algumas versões do core ela só vale com o rádio já iniciado.
+    WiFi.setTxPower(potencia);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    WiFi.setTxPower(potencia);
+
+    unsigned long inicio = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - inicio < tempo_por_potencia_ms) {
+      delay(500);
+      Serial.print(".");
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.printf("\nWi-Fi conectado! IP %s\n", WiFi.localIP().toString().c_str());
+      return;
+    }
+    Serial.println();
   }
 
-  WiFi.begin(ssid, password);
-
-  // Imprime o status enquanto espera: 1 = rede nao encontrada, 4 = falha (senha), 6 = desconectado.
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(WiFi.status());
-  }
-
-  Serial.println();
-  Serial.println("Wi-Fi conectado!");
-  Serial.println(WiFi.localIP());
+  Serial.println("Wi-Fi nao conectou (roteador ligado? rede 2.4 GHz? senha certa?). Reiniciando...");
+  ESP.restart();
 }
 
-void reconnect() {
-  while (!client.connected()) {
-    Serial.print("Conectando ao MQTT...");
+// Tenta conectar ao broker sem travar o loop: no máximo uma tentativa a cada 5 s.
+void conectar_mqtt() {
+  if (millis() - ultima_tentativa_mqtt < 5000 && ultima_tentativa_mqtt != 0) {
+    return;
+  }
+  ultima_tentativa_mqtt = millis();
 
-    if (client.connect("ESP32-Wokwi")) {
-      Serial.println(" conectado!");
-    } else {
-      Serial.print(" falhou, estado=");
-      Serial.println(client.state());
-      delay(5000);
+  Serial.printf("Conectando ao MQTT %s:%d...", MQTT_SERVER, MQTT_PORT);
+  if (client.connect(DEVICE_ID)) {
+    Serial.println(" conectado!");
+  } else {
+    Serial.printf(" falhou, estado=%d\n", client.state());
+    if (client.state() == MQTT_CONNECT_FAILED) {
+      // -2: ninguém respondeu nesse IP/porta. O caso mais comum é o IP do PC ter mudado.
+      Serial.println("  Broker inacessivel: no PC rode hardware/broker-local.ps1, ele mostra o IP atual");
+      Serial.println("  e avisa se MQTT_SERVER em include/secrets.h estiver desatualizado.");
     }
   }
 }
 
-// Le o sensor por ~1 s e devolve o RMS sem a componente continua.
-// Parado fica perto de 0 (sobra so o ruido do ADC, poucas dezenas).
-// Rolamento bom fica baixo e estavel; desgaste aumenta a intensidade.
-int ler_vibracao_rms() {
-  double soma = 0;
-  double soma_quadrados = 0;
+void amostrar() {
+  int valor = analogRead(PINO_SENSOR);
 
-  for (int i = 0; i < amostras; i++) {
-    int leitura = analogRead(sensor);
-    soma += leitura;
-    soma_quadrados += (double)leitura * leitura;
-    delayMicroseconds(intervalo_amostra_us);
+  if (valor > pico) {
+    pico = valor;
   }
+  soma_quadrados += (double)valor * valor;
+  total_amostras++;
 
-  double media = soma / amostras;
-  double variancia = soma_quadrados / amostras - media * media;
-  return variancia > 0 ? (int)sqrt(variancia) : 0;
+  if (!em_impacto && valor >= limiar_impacto) {
+    em_impacto = true;
+    impactos++;
+  } else if (em_impacto && valor < limiar_impacto - histerese_impacto) {
+    em_impacto = false;
+  }
 }
 
-void setup() {
-  Serial.begin(115200);
+void publicar_janela() {
+  int rms = total_amostras > 0 ? (int)sqrt(soma_quadrados / total_amostras) : 0;
 
-  pinMode(alimentacao_sensor, OUTPUT);
-  digitalWrite(alimentacao_sensor, HIGH);
-  analogSetPinAttenuation(sensor, ADC_11db);  // faixa de 0 a ~3,3 V
-
-  setup_wifi();
-
-  client.setServer(mqtt_server, mqtt_port);
-}
-
-void loop() {
-
-  if (!client.connected()) {
-    reconnect();
-  }
-
-  client.loop();
-
-  int valor = ler_vibracao_rms();
-
-  char mensagem[64];
-  snprintf(mensagem, sizeof(mensagem), "{\"device\":\"esp32-01\",\"valor\":%d}", valor);
-
-  client.publish(
-    "railsense/sensor/vibracao",
-    mensagem
-  );
+  char mensagem[96];
+  snprintf(mensagem, sizeof(mensagem),
+           "{\"device\":\"%s\",\"valor\":%d,\"rms\":%d,\"impactos\":%d}",
+           DEVICE_ID, pico, rms, impactos);
+  client.publish(TOPICO_LEITURA, mensagem);
 
   Serial.print("Enviado: ");
   Serial.println(mensagem);
 
-  if (valor >= limiar_captura && (ultima_captura == 0 || millis() - ultima_captura >= intervalo_captura_ms)) {
-    char comando[64];
-    snprintf(comando, sizeof(comando), "{\"device\":\"esp32-01\",\"valor\":%d}", valor);
-    client.publish("railsense/camera/capturar", comando);
+  if (pico >= limiar_captura && (ultima_captura == 0 || millis() - ultima_captura >= intervalo_captura_ms)) {
+    client.publish(TOPICO_CAPTURA, mensagem);
     ultima_captura = millis();
 
     Serial.print("Captura solicitada: ");
-    Serial.println(comando);
+    Serial.println(mensagem);
+  }
+
+  pico = 0;
+  soma_quadrados = 0;
+  total_amostras = 0;
+  impactos = 0;
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(PINO_LED, OUTPUT);
+  digitalWrite(PINO_LED, LOW);
+
+  analogReadResolution(12);                      // 0-4095
+  analogSetPinAttenuation(PINO_SENSOR, ADC_11db); // faixa de ~0 a 3,3 V
+
+  conectar_wifi();
+  client.setServer(MQTT_SERVER, MQTT_PORT);
+}
+
+void loop() {
+  if (WiFi.status() != WL_CONNECTED) {
+    digitalWrite(PINO_LED, LOW);
+    conectar_wifi();
+  }
+
+  if (!client.connected()) {
+    digitalWrite(PINO_LED, LOW);
+    conectar_mqtt();
+    return;
+  }
+  digitalWrite(PINO_LED, HIGH);
+  client.loop();
+
+  if (micros() - ultima_amostra_us >= periodo_amostra_us) {
+    ultima_amostra_us = micros();
+    amostrar();
+  }
+
+  if (millis() - inicio_janela >= janela_ms) {
+    inicio_janela = millis();
+    publicar_janela();
   }
 }
