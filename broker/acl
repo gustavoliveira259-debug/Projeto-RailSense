@@ -1,0 +1,16 @@
+# Permissões por usuário do broker (sem anônimo: veja mosquitto.conf).
+# Cada cliente só publica/assina o que precisa; o resto é negado.
+
+# ESP32 (firmware por Wi-Fi e hardware/serial_bridge.py no modo USB).
+user esp32
+topic write railsense/sensor/vibracao
+topic write railsense/camera/capturar
+
+# Backend: grava as leituras de vibração.
+user backend
+topic read railsense/sensor/vibracao
+
+# Ponte da câmera (camera/camera_bridge.py): recebe pedidos de foto e avisa cada envio.
+user camera
+topic read railsense/camera/capturar
+topic write railsense/camera/imagem

@@ -147,3 +147,29 @@ Exemplo:
 ```text
 railsense/sensor/vibracao
 ```
+
+## Acesso ao broker
+
+O broker não aceita conexão anônima: a porta fica exposta na rede para o ESP32
+alcançar, e sem senha qualquer aparelho da rede poderia gravar leituras falsas ou
+disparar a câmera. Cada cliente tem um usuário e só pode usar os tópicos dele
+(`broker/acl`):
+
+| Usuário | Publica | Assina | Onde vai a senha |
+|---|---|---|---|
+| `esp32` | `railsense/sensor/vibracao`, `railsense/camera/capturar` | — | `MQTT_PASSWORD` em `hardware/include/secrets.h` e `MQTT_SENHA` da `serial_bridge.py` |
+| `backend` | — | `railsense/sensor/vibracao` | passada pelo `docker-compose.yml` |
+| `camera` | `railsense/camera/imagem` | `railsense/camera/capturar` | `MQTT_SENHA` em `camera/.env` |
+
+As senhas ficam em `MQTT_ESP32_SENHA`, `MQTT_BACKEND_SENHA` e `MQTT_CAMERA_SENHA`
+no `.env` da raiz. O broker (Docker ou `hardware/broker-local.ps1`) gera o arquivo
+de senhas a partir delas ao subir e não sobe se alguma estiver vazia.
+
+Para acompanhar as leituras, assine com o usuário `backend`:
+
+```bash
+mosquitto_sub -h localhost -p 1883 -u backend -P "<MQTT_BACKEND_SENHA>" -t railsense/sensor/vibracao -v
+```
+
+O tráfego ainda vai sem criptografia na rede local: as senhas impedem injeção por
+quem não as tem, mas quem captura o tráfego da rede consegue lê-las.

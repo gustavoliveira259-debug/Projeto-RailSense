@@ -3,10 +3,18 @@ services:
     image: eclipse-mosquitto:2
     container_name: railsense-broker
     restart: unless-stopped
+    # Gera as senhas a partir do .env antes de subir (sem acesso anônimo).
+    entrypoint: ["/bin/sh", "/mosquitto/config/entrypoint.sh"]
+    environment:
+      MQTT_ESP32_SENHA: ${MQTT_ESP32_SENHA}
+      MQTT_BACKEND_SENHA: ${MQTT_BACKEND_SENHA}
+      MQTT_CAMERA_SENHA: ${MQTT_CAMERA_SENHA}
     ports:
       - "${MQTT_HOST_PORT:-1883}:1883"
     volumes:
-      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./broker/acl:/mosquitto/config/acl:ro
+      - ./broker/entrypoint.sh:/mosquitto/config/entrypoint.sh:ro
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
 

@@ -11,3 +11,7 @@
 #define MQTT_SERVER "192.168.0.10"
 // 1883 é o padrão. Use 1884 se o PC já tiver o serviço Mosquitto do Windows ocupando a 1883.
 #define MQTT_PORT 1883
+
+// O broker não aceita conexão anônima. Usuário esp32 e a MQTT_ESP32_SENHA do .env da raiz.
+#define MQTT_USER "esp32"
+#define MQTT_PASSWORD "senha-do-broker"

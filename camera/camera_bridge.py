@@ -48,6 +48,8 @@ INTERVALO = float(os.environ.get("INTERVALO_SEGUNDOS", "30"))   # 0 desliga o en
 
 MQTT_BROKER = os.environ.get("MQTT_BROKER", "")                 # vazio desliga o MQTT
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+MQTT_USUARIO = os.environ.get("MQTT_USUARIO", "camera")        # broker sem anônimo (broker/acl)
+MQTT_SENHA = os.environ.get("MQTT_SENHA", "")                   # MQTT_CAMERA_SENHA do .env da raiz
 TOPICO_COMANDO = "railsense/camera/capturar"
 TOPICO_IMAGEM = "railsense/camera/imagem"
 
@@ -176,6 +178,9 @@ def iniciar_mqtt():
     global mqtt_client
 
     def ao_conectar(client, userdata, flags, reason_code, properties):
+        if reason_code.is_failure:
+            print(f"MQTT recusou a conexão: {reason_code} (confira MQTT_USUARIO/MQTT_SENHA)")
+            return
         client.subscribe(TOPICO_COMANDO)
         print(f"MQTT conectado, aguardando pedidos em {TOPICO_COMANDO}")
 
@@ -186,6 +191,7 @@ def iniciar_mqtt():
     mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     mqtt_client.on_connect = ao_conectar
     mqtt_client.on_message = ao_receber
+    mqtt_client.username_pw_set(MQTT_USUARIO, MQTT_SENHA)
     mqtt_client.connect_async(MQTT_BROKER, MQTT_PORT)
     mqtt_client.loop_start()
 

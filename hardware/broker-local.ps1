@@ -2,7 +2,8 @@
 # Uso: powershell -ExecutionPolicy Bypass -File hardware\broker-local.ps1
 #
 # Lê MQTT_SERVER e MQTT_PORT de include/secrets.h, confere se o IP ainda é deste PC
-# e roda o mosquitto.exe instalado escutando em todas as interfaces.
+# e roda o mosquitto.exe instalado escutando em todas as interfaces, sem acesso anônimo:
+# mesmas senhas do .env da raiz (MQTT_*_SENHA) e mesmas permissões de broker/acl do Docker.
 
 $ErrorActionPreference = 'Stop'
 $secrets = Join-Path $PSScriptRoot 'include\secrets.h'
@@ -43,10 +44,35 @@ if (-not (Test-Path $mosquitto)) {
     exit 1
 }
 
+$raiz = Split-Path $PSScriptRoot -Parent
+$envRaiz = Join-Path $raiz '.env'
+$acl = Join-Path $raiz 'broker\acl'
+$senhas = @{}
+if (Test-Path $envRaiz) {
+    foreach ($linha in Get-Content $envRaiz) {
+        if ($linha -match '^\s*(MQTT_(ESP32|BACKEND|CAMERA)_SENHA)\s*=\s*(.*)$') { $senhas[$Matches[1]] = $Matches[3].Trim() }
+    }
+}
+foreach ($var in 'MQTT_ESP32_SENHA', 'MQTT_BACKEND_SENHA', 'MQTT_CAMERA_SENHA') {
+    if (-not $senhas[$var]) {
+        Write-Host "Defina $var em $envRaiz (veja .env.example). Sem senha o broker nao sobe." -ForegroundColor Red
+        exit 1
+    }
+}
+
+$passwd = Join-Path $env:TEMP "railsense-mosquitto-$porta.passwd"
+$mosquittoPasswd = Join-Path (Split-Path $mosquitto) 'mosquitto_passwd.exe'
+Remove-Item $passwd -ErrorAction SilentlyContinue
+& $mosquittoPasswd -c -b $passwd esp32 $senhas['MQTT_ESP32_SENHA']
+& $mosquittoPasswd -b $passwd backend $senhas['MQTT_BACKEND_SENHA']
+& $mosquittoPasswd -b $passwd camera $senhas['MQTT_CAMERA_SENHA']
+
 $conf = Join-Path $env:TEMP "railsense-mosquitto-$porta.conf"
 @"
 listener $porta 0.0.0.0
-allow_anonymous true
+allow_anonymous false
+password_file $passwd
+acl_file $acl
 log_dest stdout
 "@ | Set-Content -Path $conf -Encoding ascii
 

@@ -15,7 +15,10 @@
 #if !__has_include("secrets.h")
 #error "Falta hardware/include/secrets.h: copie include/secrets.example.h para include/secrets.h e preencha."
 #endif
-#include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, MQTT_SERVER, MQTT_PORT (veja include/secrets.example.h)
+#include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, MQTT_SERVER, MQTT_PORT, MQTT_USER, MQTT_PASSWORD
+#if !defined(MQTT_USER) || !defined(MQTT_PASSWORD)
+#error "secrets.h sem MQTT_USER/MQTT_PASSWORD: o broker nao aceita anonimo (veja include/secrets.example.h)."
+#endif
 #endif
 
 // Módulo piezoelétrico de vibração na placa de expansão: S -> GPIO34, + -> V (3V3), - -> G.
@@ -114,11 +117,15 @@ void conectar_mqtt() {
   ultima_tentativa_mqtt = millis();
 
   Serial.printf("Conectando ao MQTT %s:%d...", MQTT_SERVER, MQTT_PORT);
-  if (client.connect(DEVICE_ID)) {
+  if (client.connect(DEVICE_ID, MQTT_USER, MQTT_PASSWORD)) {
     Serial.println(" conectado!");
   } else {
     Serial.printf(" falhou, estado=%d\n", client.state());
-    if (client.state() == MQTT_CONNECT_FAILED) {
+    if (client.state() == MQTT_CONNECT_BAD_CREDENTIALS || client.state() == MQTT_CONNECT_UNAUTHORIZED) {
+      // 4/5: o broker respondeu, mas recusou o usuário/senha.
+      Serial.println("  Usuario/senha recusados: MQTT_PASSWORD em include/secrets.h precisa ser a");
+      Serial.println("  MQTT_ESP32_SENHA do .env da raiz.");
+    } else if (client.state() == MQTT_CONNECT_FAILED) {
       // -2: ninguém respondeu nesse IP/porta. O caso mais comum é o IP do PC ter mudado.
       Serial.println("  Broker inacessivel: no PC rode hardware/broker-local.ps1, ele mostra o IP atual");
       Serial.println("  e avisa se MQTT_SERVER em include/secrets.h estiver desatualizado.");

@@ -1,0 +1,4 @@
+# Scripts rodam dentro de containers Linux: CRLF quebra o sh.
+*.sh text eol=lf
+# Configuração do Mosquitto lida dentro do container.
+broker/* text eol=lf

@@ -37,6 +37,8 @@ services:
       REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
       # Leituras de vibração do ESP32 (railsense/sensor/vibracao).
       MQTT_BROKER_URL: ${MQTT_BROKER_URL:-tcp://broker:1883}
+      MQTT_USUARIO: backend
+      MQTT_SENHA: ${MQTT_BACKEND_SENHA}
     ports:
       - "8080:8080"
 
@@ -44,10 +46,18 @@ services:
     image: eclipse-mosquitto:2
     container_name: monitoramento-broker
     restart: always
+    # Gera as senhas a partir do .env antes de subir (sem acesso anônimo).
+    entrypoint: ["/bin/sh", "/mosquitto/config/entrypoint.sh"]
+    environment:
+      MQTT_ESP32_SENHA: ${MQTT_ESP32_SENHA}
+      MQTT_BACKEND_SENHA: ${MQTT_BACKEND_SENHA}
+      MQTT_CAMERA_SENHA: ${MQTT_CAMERA_SENHA}
     ports:
       - "${MQTT_HOST_PORT:-1883}:1883"
     volumes:
-      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./broker/acl:/mosquitto/config/acl:ro
+      - ./broker/entrypoint.sh:/mosquitto/config/entrypoint.sh:ro
       - mosquitto_data:/mosquitto/data
 
   frontend:

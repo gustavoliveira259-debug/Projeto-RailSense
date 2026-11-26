@@ -11,6 +11,8 @@ Configuração por variáveis de ambiente ou hardware/.env:
     SERIAL_BAUD   padrão 115200
     MQTT_BROKER   padrão localhost (o mesmo broker que o backend assina)
     MQTT_PORT     padrão 1883
+    MQTT_USUARIO  padrão esp32 (o broker não aceita anônimo; veja broker/acl)
+    MQTT_SENHA    MQTT_ESP32_SENHA do .env da raiz
 """
 
 import json
@@ -40,6 +42,8 @@ SERIAL_PORT = os.environ.get("SERIAL_PORT", "")
 SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "115200"))
 MQTT_BROKER = os.environ.get("MQTT_BROKER", "localhost")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+MQTT_USUARIO = os.environ.get("MQTT_USUARIO", "esp32")
+MQTT_SENHA = os.environ.get("MQTT_SENHA", "")
 
 TOPICOS = {
     "VIB": "railsense/sensor/vibracao",
@@ -77,6 +81,7 @@ def conectar_mqtt():
     cliente.on_connect = lambda c, u, f, rc, p: print(
         f"MQTT conectado em {MQTT_BROKER}:{MQTT_PORT}" if rc == 0 else f"MQTT recusou a conexão: {rc}")
     cliente.on_disconnect = lambda c, u, f, rc, p: print(f"MQTT desconectado ({rc}); reconectando")
+    cliente.username_pw_set(MQTT_USUARIO, MQTT_SENHA)
     # Assíncrono: se o broker ainda não subiu, o loop tenta de novo sozinho.
     cliente.connect_async(MQTT_BROKER, MQTT_PORT)
     cliente.loop_start()
