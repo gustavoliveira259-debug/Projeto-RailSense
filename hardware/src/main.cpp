@@ -1,5 +1,17 @@
+// Firmware do sensor de vibração do RailSense.
+//
+// Dois modos, escolhidos pelo ambiente do PlatformIO (hardware/platformio.ini):
+//   esp32dev      Wi-Fi + MQTT: publica direto no broker.
+//   esp32dev-usb  USB: escreve as mensagens na serial e hardware/serial_bridge.py
+//                 publica no broker. Não precisa de Wi-Fi.
+// Nos dois modos as mensagens e os tópicos são os mesmos (mqtt/topics.md).
+
+#include <Arduino.h>
+
+#ifndef RAILSENSE_USB
 #include <WiFi.h>
 #include <PubSubClient.h>
+#endif
 
 #if !__has_include("secrets.h")
 #error "Falta hardware/include/secrets.h: copie include/secrets.example.h para include/secrets.h e preencha."
@@ -31,11 +43,26 @@ const int limiar_captura = 2000;
 // Intervalo minimo entre dois pedidos de captura, para nao inundar o backend.
 const unsigned long intervalo_captura_ms = 10000;
 
+// Mesmo valor do campo "Sensor de vibração" do eixo em Cadastros.
+#define DEVICE_ID "esp32-01"
+
+#ifndef RAILSENSE_USB
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+
 unsigned long inicio_janela = 0;
 unsigned long ultima_amostra_us = 0;
+=======
+const char* mqtt_server = "192.168.56.1";
+const int mqtt_port = 1883;
+#endif
+
+// Acima deste valor o ESP pede uma foto ao celular (topico railsense/camera/capturar).
+const int limiar_captura = 3000;
+// Intervalo minimo entre dois pedidos de captura, para nao inundar o backend.
+const unsigned long intervalo_captura_ms = 10000;
+
 unsigned long ultima_captura = 0;
 unsigned long ultima_tentativa_mqtt = 0;
 
@@ -69,12 +96,36 @@ void conectar_wifi() {
       Serial.print(".");
     }
 
+
     if (WiFi.status() == WL_CONNECTED) {
       Serial.printf("\nWi-Fi conectado! IP %s\n", WiFi.localIP().toString().c_str());
       return;
     }
     Serial.println();
   }
+
+#ifdef RAILSENSE_USB
+
+// Uma linha por mensagem: "<prefixo> <json>". O prefixo diz à ponte em qual tópico publicar:
+// VIB -> railsense/sensor/vibracao, CAP -> railsense/camera/capturar. Outras linhas são só log.
+void publicar(const char* prefixo, const char* mensagem) {
+  Serial.print(prefixo);
+  Serial.print(' ');
+  Serial.println(mensagem);
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("RailSense: modo USB, mensagens pela serial");
+}
+
+#else
+
+void setup_wifi() {
+  delay(10);
+
+  Serial.println("Conectando ao Wi-Fi...");
+
 
   Serial.println("Wi-Fi nao conectou (roteador ligado? rede 2.4 GHz? senha certa?). Reiniciando...");
   ESP.restart();
@@ -143,6 +194,15 @@ void publicar_janela() {
   impactos = 0;
 }
 
+void publicar(const char* prefixo, const char* mensagem) {
+  const char* topico = prefixo[0] == 'C' ? "railsense/camera/capturar" : "railsense/sensor/vibracao";
+  client.publish(topico, mensagem);
+  Serial.print("Enviado em ");
+  Serial.print(topico);
+  Serial.print(": ");
+  Serial.println(mensagem);
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(PINO_LED, OUTPUT);
@@ -155,12 +215,15 @@ void setup() {
   client.setServer(MQTT_SERVER, MQTT_PORT);
 }
 
+#endif
+
 void loop() {
   if (WiFi.status() != WL_CONNECTED) {
     digitalWrite(PINO_LED, LOW);
     conectar_wifi();
   }
 
+#ifndef RAILSENSE_USB
   if (!client.connected()) {
     digitalWrite(PINO_LED, LOW);
     conectar_mqtt();
@@ -168,6 +231,8 @@ void loop() {
   }
   digitalWrite(PINO_LED, HIGH);
   client.loop();
+#endif
+
 
   if (micros() - ultima_amostra_us >= periodo_amostra_us) {
     ultima_amostra_us = micros();
@@ -178,4 +243,18 @@ void loop() {
     inicio_janela = millis();
     publicar_janela();
   }
+
+  int valor = analogRead(pot);
+
+  char mensagem[64];
+  snprintf(mensagem, sizeof(mensagem), "{\"device\":\"" DEVICE_ID "\",\"valor\":%d}", valor);
+  publicar("VIB", mensagem);
+
+  if (valor >= limiar_captura && (ultima_captura == 0 || millis() - ultima_captura >= intervalo_captura_ms)) {
+    publicar("CAP", mensagem);
+    ultima_captura = millis();
+  }
+
+  delay(1000);
+
 }

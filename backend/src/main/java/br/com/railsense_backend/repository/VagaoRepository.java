@@ -15,4 +15,6 @@ public interface VagaoRepository extends JpaRepository<Vagao, Long> {
 
     @EntityGraph(attributePaths = "patioLinha")
     Page<Vagao> findByPatioLinhaId(Long patioLinhaId, Pageable pageable);
+
+    long countByAtivoTrue();
 }

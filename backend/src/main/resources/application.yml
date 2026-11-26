@@ -72,3 +72,15 @@ app:
   gemini:
     api-key: ${GEMINI_API_KEY}
     model: ${GEMINI_MODEL:gemini-3.8-flash}
+  mqtt:
+    # Vazio desliga a assinatura (ex.: Render, sem broker). No compose: tcp://broker:1883.
+    broker-url: ${MQTT_BROKER_URL:}
+    topico-vibracao: ${MQTT_TOPICO_VIBRACAO:railsense/sensor/vibracao}
+    usuario: ${MQTT_USUARIO:}
+    senha: ${MQTT_SENHA:}
+  vibracao:
+    # Mesmo valor de limiar_captura no firmware (hardware/src/main.cpp): acima dele o ESP32 pede uma foto.
+    limiar: ${VIBRACAO_LIMIAR:3000}
+    # Fundo de escala do ADC de 12 bits do ESP32.
+    valor-maximo: 4095
+    retencao-dias: ${VIBRACAO_RETENCAO_DIAS:7}
