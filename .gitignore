@@ -11,4 +11,8 @@ node_modules/
 
 # Python
 __pycache__/
+
+# Credenciais do firmware
+hardware/include/secrets.h
+
 .venv/

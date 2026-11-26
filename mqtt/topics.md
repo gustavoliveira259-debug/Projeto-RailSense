@@ -16,16 +16,20 @@ Backend (`VibracaoMqttListener`), quando `MQTT_BROKER_URL` está definido
 (no `docker-compose.yml`: `tcp://broker:1883`). Vazio desliga a assinatura, como no Render.
 
 **Formato da mensagem:**
+JSON com as métricas de vibração da última janela de 1 s, calculadas a partir
+de amostras do sensor piezoelétrico a 2 kHz (ADC 0-4095):
+
+- `valor`: pico da janela;
+- `rms`: valor RMS da janela (energia da vibração);
+- `impactos`: quantas vezes o sinal passou do limiar de impacto.
+
 JSON com o ID do dispositivo e a leitura bruta do ADC (0 a 4095).
 
 **Exemplo:**
 
-```json
-{"device":"esp32-01","valor":2048}
-```
 
 **Frequência de envio:**
-1 segundo.
+1 segundo (uma mensagem por janela).
 
 ### Vínculo com o eixo
 
@@ -92,14 +96,14 @@ python camera/camera_bridge.py
 
 **Tópico:** `railsense/camera/capturar`
 
-**Publicador:** ESP32 (quando a leitura passa de `limiar_captura`, no máximo 1 vez a cada 10 s)
+**Publicador:** ESP32 (quando o pico da janela passa de `limiar_captura`, no máximo 1 vez a cada 10 s)
 
 **Assinante:** `camera/camera_bridge.py` (com `MQTT_BROKER` definido)
 
 **Exemplo:**
 
 ```json
-{"device":"esp32-01","valor":3120}
+{"device":"esp32-01","valor":2310,"rms":180,"impactos":3}
 ```
 
 O conteúdo é apenas informativo: qualquer mensagem nesse tópico dispara uma captura.
