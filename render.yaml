@@ -31,6 +31,14 @@ services:
       # URL do frontend no Vercel, ex.: https://railsense.vercel.app
       - key: CORS_ALLOWED_ORIGINS
         sync: false
+      # Broker MQTT na nuvem (EMQX Cloud), ex.: ssl://xxxxxxxx.ala.us-east-1.emqxsl.com:8883.
+      # Vazio desliga as leituras de vibração. Passo a passo em mqtt/topics.md.
+      - key: MQTT_BROKER_URL
+        sync: false
+      - key: MQTT_USUARIO
+        sync: false
+      - key: MQTT_SENHA
+        sync: false
       - key: ADMIN_NAME
         value: Administrador RailSense
       - key: GEMINI_MODEL

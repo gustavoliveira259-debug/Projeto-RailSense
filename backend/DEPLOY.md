@@ -26,7 +26,10 @@ As tabelas são criadas pelo Flyway na primeira subida; não rode SQL à mão.
    - as três do banco (acima);
    - `GEMINI_API_KEY` e `CLOUDINARY_URL`;
    - `ADMIN_EMAIL` e `ADMIN_PASSWORD` (mínimo 12 caracteres): o ADMIN é criado na primeira subida;
-   - `CORS_ALLOWED_ORIGINS`: a URL do frontend no Vercel.
+   - `CORS_ALLOWED_ORIGINS`: a URL do frontend no Vercel;
+   - `MQTT_BROKER_URL`, `MQTT_USUARIO` e `MQTT_SENHA`: o broker na nuvem que recebe as
+     leituras do ESP32 (ex.: `ssl://xxxxxxxx.ala.us-east-1.emqxsl.com:8883`). Passo a passo em
+     `mqtt/topics.md`. Vazio desliga as leituras de vibração.
 3. Aguarde o deploy e confira `https://<servico>.onrender.com/actuator/health` → `{"status":"UP"}`.
 
 Já vem configurado no `render.yaml`: cookie de sessão `Secure`, cadastro público desligado
@@ -52,6 +55,7 @@ mesma origem. No projeto do frontend, um `vercel.json` com:
 ## Observações
 
 - **Plano gratuito do Render:** o serviço hiberna após ~15 min sem uso; a primeira requisição
-  depois disso demora cerca de 1 minuto.
+  depois disso demora cerca de 1 minuto. A conexão MQTT não o mantém acordado: enquanto
+  ele dorme, as leituras de vibração publicadas no broker se perdem.
 - **Limiar do alerta:** `ALERTA_LIMIAR_NIVEL_ALTO` (padrão `0.6`). Ver `ImageAnalysisPrompt`.
 - **Limite de upload:** `UPLOAD_MAX_FILE_SIZE` (padrão `10MB`).

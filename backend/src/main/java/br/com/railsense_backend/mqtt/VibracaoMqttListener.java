@@ -21,7 +21,8 @@ import jakarta.annotation.PreDestroy;
 
 /**
  * Assina railsense/sensor/vibracao e grava cada leitura no eixo do sensor.
- * Só existe quando app.mqtt.broker-url está definido (o deploy no Render não tem broker).
+ * Só existe quando app.mqtt.broker-url está definido. Aceita tcp:// (broker local) e
+ * ssl:// (broker na nuvem, certificado conferido pela JVM).
  * A conexão é refeita pelo agendamento abaixo, inclusive se o broker subir depois do backend.
  */
 @Component

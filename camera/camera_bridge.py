@@ -48,6 +48,9 @@ INTERVALO = float(os.environ.get("INTERVALO_SEGUNDOS", "30"))   # 0 desliga o en
 
 MQTT_BROKER = os.environ.get("MQTT_BROKER", "")                 # vazio desliga o MQTT
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+MQTT_USUARIO = os.environ.get("MQTT_USUARIO", "")                # vazio conecta sem login
+MQTT_SENHA = os.environ.get("MQTT_SENHA", "")
+MQTT_TLS = os.environ.get("MQTT_TLS", "1" if MQTT_PORT == 8883 else "0").lower() in ("1", "true", "sim")
 TOPICO_COMANDO = "railsense/camera/capturar"
 TOPICO_IMAGEM = "railsense/camera/imagem"
 
@@ -186,6 +189,10 @@ def iniciar_mqtt():
     mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     mqtt_client.on_connect = ao_conectar
     mqtt_client.on_message = ao_receber
+    if MQTT_TLS:
+        mqtt_client.tls_set()  # confere o certificado do broker com os certificados do sistema
+    if MQTT_USUARIO:
+        mqtt_client.username_pw_set(MQTT_USUARIO, MQTT_SENHA)
     mqtt_client.connect_async(MQTT_BROKER, MQTT_PORT)
     mqtt_client.loop_start()
 

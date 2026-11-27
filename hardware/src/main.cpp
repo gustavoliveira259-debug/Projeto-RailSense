@@ -1,7 +1,7 @@
 // Firmware do sensor de vibração do RailSense.
 //
 // Dois modos, escolhidos pelo ambiente do PlatformIO (hardware/platformio.ini):
-//   esp32dev      Wi-Fi + MQTT: publica direto no broker.
+//   esp32dev      Wi-Fi + MQTT: publica direto no broker (local ou na nuvem com TLS).
 //   esp32dev-usb  USB: escreve as mensagens na serial e hardware/serial_bridge.py
 //                 publica no broker. Não precisa de Wi-Fi.
 // Nos dois modos as mensagens e os tópicos são os mesmos (mqtt/topics.md).
@@ -16,6 +16,23 @@
 #error "Falta hardware/include/secrets.h: copie include/secrets.example.h para include/secrets.h e preencha."
 #endif
 #include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, MQTT_SERVER, MQTT_PORT (veja include/secrets.example.h)
+
+// Campos novos do secrets.h. Os padrões mantêm um secrets.h antigo (broker local, sem senha) funcionando.
+#ifndef MQTT_USER
+#define MQTT_USER ""
+#endif
+#ifndef MQTT_PASSWORD
+#define MQTT_PASSWORD ""
+#endif
+// TLS liga sozinho na porta 8883 (broker na nuvem); defina 0 ou 1 no secrets.h para forçar.
+#ifndef MQTT_TLS
+#define MQTT_TLS (MQTT_PORT == 8883)
+#endif
+
+#if MQTT_TLS
+#include <WiFiClientSecure.h>
+#include "ca_cert.h"  // MQTT_CA_CERT
+#endif
 #endif
 
 // Módulo piezoelétrico de vibração na placa de expansão: S -> GPIO34, + -> V (3V3), - -> G.
@@ -74,7 +91,11 @@ void iniciar_conexao() {
 
 #else
 
+#if MQTT_TLS
+WiFiClientSecure espClient;
+#else
 WiFiClient espClient;
+#endif
 PubSubClient client(espClient);
 
 unsigned long ultima_tentativa_mqtt = 0;
@@ -120,15 +141,27 @@ void conectar_mqtt() {
   }
   ultima_tentativa_mqtt = millis();
 
-  Serial.printf("Conectando ao MQTT %s:%d...", MQTT_SERVER, MQTT_PORT);
-  if (client.connect(DEVICE_ID)) {
+  Serial.printf("Conectando ao MQTT %s:%d%s...", MQTT_SERVER, MQTT_PORT, MQTT_TLS ? " (TLS)" : "");
+  // Sem usuário configurado o login vai sem credenciais, como o broker local espera.
+  const char* usuario = strlen(MQTT_USER) > 0 ? MQTT_USER : nullptr;
+  const char* senha = usuario != nullptr ? MQTT_PASSWORD : nullptr;
+  if (client.connect(DEVICE_ID, usuario, senha)) {
     Serial.println(" conectado!");
   } else {
     Serial.printf(" falhou, estado=%d\n", client.state());
-    if (client.state() == MQTT_CONNECT_FAILED) {
+    if (client.state() == MQTT_CONNECT_BAD_CREDENTIALS || client.state() == MQTT_CONNECT_UNAUTHORIZED) {
+      Serial.println("  Broker recusou o login: confira MQTT_USER e MQTT_PASSWORD em include/secrets.h.");
+    } else if (client.state() == MQTT_CONNECT_FAILED) {
+#if MQTT_TLS
+      // -2 com TLS: endereço errado, rede bloqueando a porta ou certificado que não confere.
+      Serial.println("  Broker inacessivel: confira MQTT_SERVER (endereco do broker, sem mqtts://) e MQTT_PORT.");
+      Serial.println("  Se a rede bloquear a porta 8883 (comum em redes de escola), teste com o roteador do celular.");
+      Serial.println("  Se o endereco estiver certo, pode ser o certificado: veja include/ca_cert.h.");
+#else
       // -2: ninguém respondeu nesse IP/porta. O caso mais comum é o IP do PC do broker ter mudado.
       Serial.println("  Broker inacessivel: no PC do broker rode hardware/broker-local.ps1, ele mostra o IP atual");
       Serial.println("  e avisa se MQTT_SERVER em include/secrets.h estiver desatualizado.");
+#endif
     }
   }
 }
@@ -161,6 +194,10 @@ bool manter_conexao() {
 
 void iniciar_conexao() {
   conectar_wifi();
+#if MQTT_TLS
+  // Confere o certificado do broker; o nome do host vai no SNI, que brokers na nuvem exigem.
+  espClient.setCACert(MQTT_CA_CERT);
+#endif
   client.setServer(MQTT_SERVER, MQTT_PORT);
 }
 
