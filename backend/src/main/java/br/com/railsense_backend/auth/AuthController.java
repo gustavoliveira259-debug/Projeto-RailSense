@@ -58,7 +58,10 @@ public class AuthController {
             HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         String email = request.email().trim().toLowerCase();
         String attemptKey = clientAddress(httpRequest) + ":" + email;
-        if (attempts.isBlocked(attemptKey)) {
+        // O IP vem do X-Forwarded-For, que o cliente controla; contar também só pelo e-mail impede
+        // contornar o bloqueio trocando esse cabeçalho a cada tentativa.
+        String emailKey = "email:" + email;
+        if (attempts.isBlocked(emailKey) || attempts.isBlocked(attemptKey)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(new ApiError("Tente novamente mais tarde."));
         }
 
@@ -67,9 +70,11 @@ public class AuthController {
             usuario == null ? DUMMY_HASH : usuario.getHashSenha());
         if (usuario == null || !usuario.isAtivo() || !validPassword) {
             attempts.recordFailure(attemptKey);
+            attempts.recordFailure(emailKey);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError("Credenciais inválidas."));
         }
         attempts.clear(attemptKey);
+        attempts.clear(emailKey);
 
         httpRequest.getSession();
         httpRequest.changeSessionId();
