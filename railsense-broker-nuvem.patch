@@ -1,0 +1,523 @@
+From f0c231d5ca10d5fd3a3f7399b8f80b3034de89ca Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 27 Nov 2026 13:52:55 +0000
+Subject: [PATCH] feat: suporte a broker MQTT na nuvem (TLS + usuario/senha)
+
+O broker local so era alcancado da rede do PC da escola. Agora ESP32,
+pontes Python e backend tambem conectam num broker na nuvem como o
+EMQX Cloud Serverless (porta 8883, TLS, login), sem quebrar o modo local.
+O HiveMQ Cloud Serverless nao aceita mais clusters novos (fim em 31/12/2026).
+
+- firmware: WiFiClientSecure com raizes Let's Encrypt e DigiCert G2/G3/G5
+  (ca_cert.h) e login MQTT_USER/MQTT_PASSWORD; TLS liga sozinho na porta
+  8883 e um secrets.h antigo continua compilando
+- serial_bridge.py e camera_bridge.py: MQTT_USUARIO, MQTT_SENHA, MQTT_TLS
+- backend: sem mudanca de codigo (Paho ja aceita ssl:// e usuario/senha);
+  render.yaml ganha MQTT_BROKER_URL, MQTT_USUARIO e MQTT_SENHA
+- mqtt/topics.md: passo a passo do EMQX Cloud e cuidados (cota de
+  trafego, rede da escola, hibernacao do Render)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017RHvxCHGCAjgafakMbUJhP
+---
+ backend/DEPLOY.md                             |   8 +-
+ .../mqtt/VibracaoMqttListener.java            |   3 +-
+ backend/src/main/resources/application.yml    |   3 +-
+ camera/.env.example                           |   5 +
+ camera/camera_bridge.py                       |   7 +
+ hardware/include/ca_cert.h                    | 133 ++++++++++++++++++
+ hardware/include/secrets.example.h            |  17 ++-
+ hardware/serial_bridge.py                     |  12 +-
+ hardware/src/main.cpp                         |  45 +++++-
+ mqtt/topics.md                                |  59 +++++++-
+ render.yaml                                   |   8 ++
+ 11 files changed, 289 insertions(+), 11 deletions(-)
+ create mode 100644 hardware/include/ca_cert.h
+
+diff --git a/backend/DEPLOY.md b/backend/DEPLOY.md
+index 7091efa..710830f 100644
+--- a/backend/DEPLOY.md
++++ b/backend/DEPLOY.md
+@@ -26,7 +26,10 @@ As tabelas são criadas pelo Flyway na primeira subida; não rode SQL à mão.
+    - as três do banco (acima);
+    - `GEMINI_API_KEY` e `CLOUDINARY_URL`;
+    - `ADMIN_EMAIL` e `ADMIN_PASSWORD` (mínimo 12 caracteres): o ADMIN é criado na primeira subida;
+-   - `CORS_ALLOWED_ORIGINS`: a URL do frontend no Vercel.
++   - `CORS_ALLOWED_ORIGINS`: a URL do frontend no Vercel;
++   - `MQTT_BROKER_URL`, `MQTT_USUARIO` e `MQTT_SENHA`: o broker na nuvem que recebe as
++     leituras do ESP32 (ex.: `ssl://xxxxxxxx.ala.us-east-1.emqxsl.com:8883`). Passo a passo em
++     `mqtt/topics.md`. Vazio desliga as leituras de vibração.
+ 3. Aguarde o deploy e confira `https://<servico>.onrender.com/actuator/health` → `{"status":"UP"}`.
+ 
+ Já vem configurado no `render.yaml`: cookie de sessão `Secure`, cadastro público desligado
+@@ -52,6 +55,7 @@ mesma origem. No projeto do frontend, um `vercel.json` com:
+ ## Observações
+ 
+ - **Plano gratuito do Render:** o serviço hiberna após ~15 min sem uso; a primeira requisição
+-  depois disso demora cerca de 1 minuto.
++  depois disso demora cerca de 1 minuto. A conexão MQTT não o mantém acordado: enquanto
++  ele dorme, as leituras de vibração publicadas no broker se perdem.
+ - **Limiar do alerta:** `ALERTA_LIMIAR_NIVEL_ALTO` (padrão `0.6`). Ver `ImageAnalysisPrompt`.
+ - **Limite de upload:** `UPLOAD_MAX_FILE_SIZE` (padrão `10MB`).
+diff --git a/backend/src/main/java/br/com/railsense_backend/mqtt/VibracaoMqttListener.java b/backend/src/main/java/br/com/railsense_backend/mqtt/VibracaoMqttListener.java
+index ba93597..15e8b81 100644
+--- a/backend/src/main/java/br/com/railsense_backend/mqtt/VibracaoMqttListener.java
++++ b/backend/src/main/java/br/com/railsense_backend/mqtt/VibracaoMqttListener.java
+@@ -21,7 +21,8 @@ import jakarta.annotation.PreDestroy;
+ 
+ /**
+  * Assina railsense/sensor/vibracao e grava cada leitura no eixo do sensor.
+- * Só existe quando app.mqtt.broker-url está definido (o deploy no Render não tem broker).
++ * Só existe quando app.mqtt.broker-url está definido. Aceita tcp:// (broker local) e
++ * ssl:// (broker na nuvem, certificado conferido pela JVM).
+  * A conexão é refeita pelo agendamento abaixo, inclusive se o broker subir depois do backend.
+  */
+ @Component
+diff --git a/backend/src/main/resources/application.yml b/backend/src/main/resources/application.yml
+index 4ed8050..22b66f7 100644
+--- a/backend/src/main/resources/application.yml
++++ b/backend/src/main/resources/application.yml
+@@ -73,7 +73,8 @@ app:
+     api-key: ${GEMINI_API_KEY}
+     model: ${GEMINI_MODEL:gemini-3.8-flash}
+   mqtt:
+-    # Vazio desliga a assinatura (ex.: Render, sem broker). No compose: tcp://broker:1883.
++    # Vazio desliga a assinatura. No compose: tcp://broker:1883.
++    # Broker na nuvem (EMQX Cloud): ssl://<endereco>.emqxsl.com:8883 com MQTT_USUARIO e MQTT_SENHA.
+     broker-url: ${MQTT_BROKER_URL:}
+     topico-vibracao: ${MQTT_TOPICO_VIBRACAO:railsense/sensor/vibracao}
+     usuario: ${MQTT_USUARIO:}
+diff --git a/camera/.env.example b/camera/.env.example
+index 07e94d5..5993cfb 100644
+--- a/camera/.env.example
++++ b/camera/.env.example
+@@ -22,3 +22,8 @@ INTERVALO_SEGUNDOS=30
+ MQTT_BROKER=localhost
+ MQTT_PORT=1883
+ # Use o mesmo valor de MQTT_HOST_PORT do .env da raiz (ex.: 1884).
++# Broker na nuvem (EMQX Cloud Serverless): endereço do deployment, porta 8883 (liga o TLS) e usuário/senha.
++# MQTT_BROKER=xxxxxxxx.ala.us-east-1.emqxsl.com
++# MQTT_PORT=8883
++MQTT_USUARIO=
++MQTT_SENHA=
+diff --git a/camera/camera_bridge.py b/camera/camera_bridge.py
+index c4a9294..cdff3f2 100644
+--- a/camera/camera_bridge.py
++++ b/camera/camera_bridge.py
+@@ -48,6 +48,9 @@ INTERVALO = float(os.environ.get("INTERVALO_SEGUNDOS", "30"))   # 0 desliga o en
+ 
+ MQTT_BROKER = os.environ.get("MQTT_BROKER", "")                 # vazio desliga o MQTT
+ MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
++MQTT_USUARIO = os.environ.get("MQTT_USUARIO", "")                # vazio conecta sem login
++MQTT_SENHA = os.environ.get("MQTT_SENHA", "")
++MQTT_TLS = os.environ.get("MQTT_TLS", "1" if MQTT_PORT == 8883 else "0").lower() in ("1", "true", "sim")
+ TOPICO_COMANDO = "railsense/camera/capturar"
+ TOPICO_IMAGEM = "railsense/camera/imagem"
+ 
+@@ -186,6 +189,10 @@ def iniciar_mqtt():
+     mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+     mqtt_client.on_connect = ao_conectar
+     mqtt_client.on_message = ao_receber
++    if MQTT_TLS:
++        mqtt_client.tls_set()  # confere o certificado do broker com os certificados do sistema
++    if MQTT_USUARIO:
++        mqtt_client.username_pw_set(MQTT_USUARIO, MQTT_SENHA)
+     mqtt_client.connect_async(MQTT_BROKER, MQTT_PORT)
+     mqtt_client.loop_start()
+ 
+diff --git a/hardware/include/ca_cert.h b/hardware/include/ca_cert.h
+new file mode 100644
+index 0000000..bf0096a
+--- /dev/null
++++ b/hardware/include/ca_cert.h
+@@ -0,0 +1,133 @@
++// Certificados raiz que a ESP32 aceita para o broker quando MQTT_TLS está ligado.
++// Brokers na nuvem usam certificados assinados por uma destas raízes:
++//   ISRG Root X1 (Let's Encrypt) e DigiCert Global Root G2/G3 e TLS Root G5.
++// Se o monitor serial mostrar erro de certificado com o seu broker, baixe o arquivo
++// .crt indicado no painel dele (no EMQX Cloud: Overview -> CA Certificate) e
++// acrescente o conteúdo no fim da lista, no mesmo formato (cada linha entre aspas com \n).
++#pragma once
++
++static const char MQTT_CA_CERT[] =
++    // ISRG Root X1 (válido até 2035)
++    // SHA-256 96:BC:EC:06:26:49:76:F3:74:60:77:9A:CF:28:C5:A7:CF:E8:A3:C0:AA:E1:1A:8F:FC:EE:05:C0:BD:DF:08:C6
++    "-----BEGIN CERTIFICATE-----\n"
++    "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\n"
++    "-----END CERTIFICATE-----\n"
++    // DigiCert Global Root G2 (válido até 2038)
++    // SHA-256 CB:3C:CB:B7:60:31:E5:E0:13:8F:8D:D3:9A:23:F9:DE:47:FF:C3:5E:43:C1:14:4C:EA:27:D4:6A:5A:B1:CB:5F
++    "-----BEGIN CERTIFICATE-----\n"
++    "MIIDjjCCAnagAwIBAgIQAzrx5qcRqaC7KGSxHQn65TANBgkqhkiG9w0BAQsFADBh\n"
++    "MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\n"
++    "d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBH\n"
++    "MjAeFw0xMzA4MDExMjAwMDBaFw0zODAxMTUxMjAwMDBaMGExCzAJBgNVBAYTAlVT\n"
++    "MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j\n"
++    "b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IEcyMIIBIjANBgkqhkiG\n"
++    "9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuzfNNNx7a8myaJCtSnX/RrohCgiN9RlUyfuI\n"
++    "2/Ou8jqJkTx65qsGGmvPrC3oXgkkRLpimn7Wo6h+4FR1IAWsULecYxpsMNzaHxmx\n"
++    "1x7e/dfgy5SDN67sH0NO3Xss0r0upS/kqbitOtSZpLYl6ZtrAGCSYP9PIUkY92eQ\n"
++    "q2EGnI/yuum06ZIya7XzV+hdG82MHauVBJVJ8zUtluNJbd134/tJS7SsVQepj5Wz\n"
++    "tCO7TG1F8PapspUwtP1MVYwnSlcUfIKdzXOS0xZKBgyMUNGPHgm+F6HmIcr9g+UQ\n"
++    "vIOlCsRnKPZzFBQ9RnbDhxSJITRNrw9FDKZJobq7nMWxM4MphQIDAQABo0IwQDAP\n"
++    "BgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQUTiJUIBiV\n"
++    "5uNu5g/6+rkS7QYXjzkwDQYJKoZIhvcNAQELBQADggEBAGBnKJRvDkhj6zHd6mcY\n"
++    "1Yl9PMWLSn/pvtsrF9+wX3N3KjITOYFnQoQj8kVnNeyIv/iPsGEMNKSuIEyExtv4\n"
++    "NeF22d+mQrvHRAiGfzZ0JFrabA0UWTW98kndth/Jsw1HKj2ZL7tcu7XUIOGZX1NG\n"
++    "Fdtom/DzMNU+MeKNhJ7jitralj41E6Vf8PlwUHBHQRFXGU7Aj64GxJUTFy8bJZ91\n"
++    "8rGOmaFvE7FBcf6IKshPECBV1/MUReXgRPTqh5Uykw7+U0b6LJ3/iyK5S9kJRaTe\n"
++    "pLiaWN0bfVKfjllDiIGknibVb63dDcY3fe0Dkhvld1927jyNxF1WW6LZZm6zNTfl\n"
++    "MrY=\n"
++    "-----END CERTIFICATE-----\n"
++    // DigiCert Global Root G3 (válido até 2038)
++    // SHA-256 31:AD:66:48:F8:10:41:38:C7:38:F3:9E:A4:32:01:33:39:3E:3A:18:CC:02:29:6E:F9:7C:2A:C9:EF:67:31:D0
++    "-----BEGIN CERTIFICATE-----\n"
++    "MIICPzCCAcWgAwIBAgIQBVVWvPJepDU1w6QP1atFcjAKBggqhkjOPQQDAzBhMQsw\n"
++    "CQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3d3cu\n"
++    "ZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBHMzAe\n"
++    "Fw0xMzA4MDExMjAwMDBaFw0zODAxMTUxMjAwMDBaMGExCzAJBgNVBAYTAlVTMRUw\n"
++    "EwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5jb20x\n"
++    "IDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IEczMHYwEAYHKoZIzj0CAQYF\n"
++    "K4EEACIDYgAE3afZu4q4C/sLfyHS8L6+c/MzXRq8NOrexpu80JX28MzQC7phW1FG\n"
++    "fp4tn+6OYwwX7Adw9c+ELkCDnOg/QW07rdOkFFk2eJ0DQ+4QE2xy3q6Ip6FrtUPO\n"
++    "Z9wj/wMco+I+o0IwQDAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjAd\n"
++    "BgNVHQ4EFgQUs9tIpPmhxdiuNkHMEWNpYim8S8YwCgYIKoZIzj0EAwMDaAAwZQIx\n"
++    "AK288mw/EkrRLTnDCgmXc/SINoyIJ7vmiI1Qhadj+Z4y3maTD/HMsQmP3Wyr+mt/\n"
++    "oAIwOWZbwmSNuJ5Q3KjVSaLtx9zRSX8XAbjIho9OjIgrqJqpisXRAL34VOKa5Vt8\n"
++    "sycX\n"
++    "-----END CERTIFICATE-----\n"
++    // DigiCert TLS RSA4096 Root G5 (válido até 2046)
++    // SHA-256 37:1A:00:DC:05:33:B3:72:1A:7E:EB:40:E8:41:9E:70:79:9D:2B:0A:0F:2C:1D:80:69:31:65:F7:CE:C4:AD:75
++    "-----BEGIN CERTIFICATE-----\n"
++    "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\n"
++    "-----END CERTIFICATE-----\n"
++    // DigiCert TLS ECC P384 Root G5 (válido até 2046)
++    // SHA-256 01:8E:13:F0:77:25:32:CF:80:9B:D1:B1:72:81:86:72:83:FC:48:C6:E1:3B:E9:C6:98:12:85:4A:49:0C:1B:05
++    "-----BEGIN CERTIFICATE-----\n"
++    "MIICGTCCAZ+gAwIBAgIQCeCTZaz32ci5PhwLBCou8zAKBggqhkjOPQQDAzBOMQsw\n"
++    "CQYDVQQGEwJVUzEXMBUGA1UEChMORGlnaUNlcnQsIEluYy4xJjAkBgNVBAMTHURp\n"
++    "Z2lDZXJ0IFRMUyBFQ0MgUDM4NCBSb290IEc1MB4XDTIxMDExNTAwMDAwMFoXDTQ2\n"
++    "MDExNDIzNTk1OVowTjELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDkRpZ2lDZXJ0LCBJ\n"
++    "bmMuMSYwJAYDVQQDEx1EaWdpQ2VydCBUTFMgRUNDIFAzODQgUm9vdCBHNTB2MBAG\n"
++    "ByqGSM49AgEGBSuBBAAiA2IABMFEoc8Rl1Ca3iOCNQfN0MsYndLxf3c1TzvdlHJS\n"
++    "7cI7+Oz6e2tYIOyZrsn8aLN1udsJ7MgT9U7GCh1mMEy7H0cKPGEQQil8pQgO4CLp\n"
++    "0zVozptjn4S1mU1YoI71VOeVyaNCMEAwHQYDVR0OBBYEFMFRRVBZqz7nLFr6ICIS\n"
++    "B4CIfBFqMA4GA1UdDwEB/wQEAwIBhjAPBgNVHRMBAf8EBTADAQH/MAoGCCqGSM49\n"
++    "BAMDA2gAMGUCMQCJao1H5+z8blUD2WdsJk6Dxv3J+ysTvLd6jLRl0mlpYxNjOyZQ\n"
++    "LgGheQaRnUi/wr4CMEfDFXuxoJGZSZOoPHzoRgaLLPIxAJSdYsiJvRmEFOml+wG4\n"
++    "DXZDjC5Ty3zfDBeWUA==\n"
++    "-----END CERTIFICATE-----\n"
++    ;
+diff --git a/hardware/include/secrets.example.h b/hardware/include/secrets.example.h
+index d5f0c93..8ea79b4 100644
+--- a/hardware/include/secrets.example.h
++++ b/hardware/include/secrets.example.h
+@@ -5,9 +5,24 @@
+ #define WIFI_SSID "nome-da-rede"
+ #define WIFI_PASSWORD "senha-da-rede"
+ 
+-// IP do PC que roda o broker, na mesma rede da ESP32. Ele muda de tempos em tempos:
++// ---- Opção A: broker na nuvem (EMQX Cloud Serverless), acessível de qualquer rede com internet ----
++// Endereço do deployment (sem "mqtts://" e sem porta), porta 8883 (TLS) e o usuário criado em
++// Access Control -> Authentication no console do EMQX Cloud. Passo a passo em mqtt/topics.md.
++// #define MQTT_SERVER "xxxxxxxx.ala.us-east-1.emqxsl.com"
++// #define MQTT_PORT 8883
++// #define MQTT_USER "railsense-esp32"
++// #define MQTT_PASSWORD "senha-do-usuario"
++
++// ---- Opção B: broker local (PC na mesma rede da ESP32) ----
++// IP do PC que roda o broker. Ele muda de tempos em tempos:
+ // rode hardware/broker-local.ps1, que mostra o IP atual e avisa se este estiver errado.
+ // Não use 192.168.56.x (VirtualBox) nem 172.x (WSL/Docker): a ESP32 não alcança.
+ #define MQTT_SERVER "192.168.0.10"
+ // 1883 é o padrão. Use 1884 se o PC já tiver o serviço Mosquitto do Windows ocupando a 1883.
+ #define MQTT_PORT 1883
++// O broker local aceita conexão sem login: deixe vazio.
++#define MQTT_USER ""
++#define MQTT_PASSWORD ""
++
++// O TLS liga sozinho com MQTT_PORT 8883. Descomente para forçar (1 = TLS, 0 = sem TLS).
++// #define MQTT_TLS 1
+diff --git a/hardware/serial_bridge.py b/hardware/serial_bridge.py
+index 713d117..2e59b25 100644
+--- a/hardware/serial_bridge.py
++++ b/hardware/serial_bridge.py
+@@ -10,7 +10,10 @@ Configuração por variáveis de ambiente ou hardware/.env:
+     SERIAL_PORT   porta do ESP32 (ex.: COM5); vazio procura sozinho
+     SERIAL_BAUD   padrão 115200
+     MQTT_BROKER   padrão localhost (o mesmo broker que o backend assina)
+-    MQTT_PORT     padrão 1883
++    MQTT_PORT     padrão 1883; 8883 para broker na nuvem (EMQX Cloud)
++    MQTT_USUARIO  usuário do broker; vazio conecta sem login (broker local)
++    MQTT_SENHA    senha do broker
++    MQTT_TLS      1 liga o TLS; padrão: ligado só na porta 8883
+ """
+ 
+ import json
+@@ -40,6 +43,9 @@ SERIAL_PORT = os.environ.get("SERIAL_PORT", "")
+ SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "115200"))
+ MQTT_BROKER = os.environ.get("MQTT_BROKER", "localhost")
+ MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
++MQTT_USUARIO = os.environ.get("MQTT_USUARIO", "")
++MQTT_SENHA = os.environ.get("MQTT_SENHA", "")
++MQTT_TLS = os.environ.get("MQTT_TLS", "1" if MQTT_PORT == 8883 else "0").lower() in ("1", "true", "sim")
+ 
+ TOPICOS = {
+     "VIB": "railsense/sensor/vibracao",
+@@ -77,6 +83,10 @@ def conectar_mqtt():
+     cliente.on_connect = lambda c, u, f, rc, p: print(
+         f"MQTT conectado em {MQTT_BROKER}:{MQTT_PORT}" if rc == 0 else f"MQTT recusou a conexão: {rc}")
+     cliente.on_disconnect = lambda c, u, f, rc, p: print(f"MQTT desconectado ({rc}); reconectando")
++    if MQTT_TLS:
++        cliente.tls_set()  # confere o certificado do broker com os certificados do sistema
++    if MQTT_USUARIO:
++        cliente.username_pw_set(MQTT_USUARIO, MQTT_SENHA)
+     # Assíncrono: se o broker ainda não subiu, o loop tenta de novo sozinho.
+     cliente.connect_async(MQTT_BROKER, MQTT_PORT)
+     cliente.loop_start()
+diff --git a/hardware/src/main.cpp b/hardware/src/main.cpp
+index 143db60..75e640b 100644
+--- a/hardware/src/main.cpp
++++ b/hardware/src/main.cpp
+@@ -1,7 +1,7 @@
+ // Firmware do sensor de vibração do RailSense.
+ //
+ // Dois modos, escolhidos pelo ambiente do PlatformIO (hardware/platformio.ini):
+-//   esp32dev      Wi-Fi + MQTT: publica direto no broker.
++//   esp32dev      Wi-Fi + MQTT: publica direto no broker (local ou na nuvem com TLS).
+ //   esp32dev-usb  USB: escreve as mensagens na serial e hardware/serial_bridge.py
+ //                 publica no broker. Não precisa de Wi-Fi.
+ // Nos dois modos as mensagens e os tópicos são os mesmos (mqtt/topics.md).
+@@ -16,6 +16,23 @@
+ #error "Falta hardware/include/secrets.h: copie include/secrets.example.h para include/secrets.h e preencha."
+ #endif
+ #include "secrets.h"  // WIFI_SSID, WIFI_PASSWORD, MQTT_SERVER, MQTT_PORT (veja include/secrets.example.h)
++
++// Campos novos do secrets.h. Os padrões mantêm um secrets.h antigo (broker local, sem senha) funcionando.
++#ifndef MQTT_USER
++#define MQTT_USER ""
++#endif
++#ifndef MQTT_PASSWORD
++#define MQTT_PASSWORD ""
++#endif
++// TLS liga sozinho na porta 8883 (broker na nuvem); defina 0 ou 1 no secrets.h para forçar.
++#ifndef MQTT_TLS
++#define MQTT_TLS (MQTT_PORT == 8883)
++#endif
++
++#if MQTT_TLS
++#include <WiFiClientSecure.h>
++#include "ca_cert.h"  // MQTT_CA_CERT
++#endif
+ #endif
+ 
+ // Módulo piezoelétrico de vibração na placa de expansão: S -> GPIO34, + -> V (3V3), - -> G.
+@@ -74,7 +91,11 @@ void iniciar_conexao() {
+ 
+ #else
+ 
++#if MQTT_TLS
++WiFiClientSecure espClient;
++#else
+ WiFiClient espClient;
++#endif
+ PubSubClient client(espClient);
+ 
+ unsigned long ultima_tentativa_mqtt = 0;
+@@ -120,15 +141,27 @@ void conectar_mqtt() {
+   }
+   ultima_tentativa_mqtt = millis();
+ 
+-  Serial.printf("Conectando ao MQTT %s:%d...", MQTT_SERVER, MQTT_PORT);
+-  if (client.connect(DEVICE_ID)) {
++  Serial.printf("Conectando ao MQTT %s:%d%s...", MQTT_SERVER, MQTT_PORT, MQTT_TLS ? " (TLS)" : "");
++  // Sem usuário configurado o login vai sem credenciais, como o broker local espera.
++  const char* usuario = strlen(MQTT_USER) > 0 ? MQTT_USER : nullptr;
++  const char* senha = usuario != nullptr ? MQTT_PASSWORD : nullptr;
++  if (client.connect(DEVICE_ID, usuario, senha)) {
+     Serial.println(" conectado!");
+   } else {
+     Serial.printf(" falhou, estado=%d\n", client.state());
+-    if (client.state() == MQTT_CONNECT_FAILED) {
++    if (client.state() == MQTT_CONNECT_BAD_CREDENTIALS || client.state() == MQTT_CONNECT_UNAUTHORIZED) {
++      Serial.println("  Broker recusou o login: confira MQTT_USER e MQTT_PASSWORD em include/secrets.h.");
++    } else if (client.state() == MQTT_CONNECT_FAILED) {
++#if MQTT_TLS
++      // -2 com TLS: endereço errado, rede bloqueando a porta ou certificado que não confere.
++      Serial.println("  Broker inacessivel: confira MQTT_SERVER (endereco do broker, sem mqtts://) e MQTT_PORT.");
++      Serial.println("  Se a rede bloquear a porta 8883 (comum em redes de escola), teste com o roteador do celular.");
++      Serial.println("  Se o endereco estiver certo, pode ser o certificado: veja include/ca_cert.h.");
++#else
+       // -2: ninguém respondeu nesse IP/porta. O caso mais comum é o IP do PC do broker ter mudado.
+       Serial.println("  Broker inacessivel: no PC do broker rode hardware/broker-local.ps1, ele mostra o IP atual");
+       Serial.println("  e avisa se MQTT_SERVER em include/secrets.h estiver desatualizado.");
++#endif
+     }
+   }
+ }
+@@ -161,6 +194,10 @@ bool manter_conexao() {
+ 
+ void iniciar_conexao() {
+   conectar_wifi();
++#if MQTT_TLS
++  // Confere o certificado do broker; o nome do host vai no SNI, que brokers na nuvem exigem.
++  espClient.setCACert(MQTT_CA_CERT);
++#endif
+   client.setServer(MQTT_SERVER, MQTT_PORT);
+ }
+ 
+diff --git a/mqtt/topics.md b/mqtt/topics.md
+index c9e4bb3..8b9d994 100644
+--- a/mqtt/topics.md
++++ b/mqtt/topics.md
+@@ -13,7 +13,8 @@ ESP32
+ 
+ **Assinante:**
+ Backend (`VibracaoMqttListener`), quando `MQTT_BROKER_URL` está definido
+-(no `docker-compose.yml`: `tcp://broker:1883`). Vazio desliga a assinatura, como no Render.
++(no `docker-compose.yml`: `tcp://broker:1883`; no Render, o broker na nuvem, veja abaixo).
++Vazio desliga a assinatura.
+ 
+ **Formato da mensagem:**
+ JSON com as métricas de vibração da última janela de 1 s, calculadas a partir
+@@ -56,6 +57,62 @@ MQTT Broker
+ Backend → leituras_vibracao → GET /api/eixos/{id}/vibracao → gráfico ao vivo
+ ```
+ 
++### Broker na nuvem (acessível de qualquer PC)
++
++O Mosquitto do `docker-compose.yml` só é alcançado de dentro da rede do PC que o roda.
++Para o ESP32, o backend no Render e qualquer PC usarem o mesmo broker pela internet,
++use o **EMQX Cloud Serverless**. A conexão é MQTT com TLS na porta **8883** e exige
++usuário e senha.
++
++A cota gratuita é mensal: 1 milhão de minutos de sessão e 1 GB de tráfego (entrada +
++saída). Três conexões ligadas o mês todo (ESP32, backend e uma ponte) gastam ~130 mil
++minutos. O tráfego é o limite que importa: um ESP32 publicando a cada 1 s, 24 h por dia,
++gasta ~0,5 GB/mês (a mensagem entra no broker e sai para o backend). Desligue o ESP32
++quando não estiver usando.
++
++> O HiveMQ Cloud Serverless não aceita mais clusters novos e será desligado em
++> 31/12/2026. O "Free Lab License" do HiveMQ é para rodar o broker na sua própria
++> máquina, o que não resolve o acesso de fora da rede.
++
++1. Crie a conta pelo <https://www.emqx.com/en/cloud/serverless-mqtt> e um deployment
++   **Serverless**. Na criação, deixe o **Spend Limit** em **0**: assim ele nunca passa
++   da cota gratuita nem cobra nada.
++2. No **Overview** do deployment, copie o endereço (ex.: `xxxxxxxx.ala.us-east-1.emqxsl.com`)
++   e confira a porta **8883** (MQTT over TLS).
++3. Em **Access Control → Authentication**, crie um usuário (ex.: `railsense`) e uma senha.
++   Pode ser um só para tudo, ou um por dispositivo.
++4. Configure cada parte com o mesmo endereço:
++
++   | Onde | O que preencher |
++   |---|---|
++   | ESP32 (`hardware/include/secrets.h`) | `MQTT_SERVER "xxxxxxxx.ala.us-east-1.emqxsl.com"`, `MQTT_PORT 8883`, `MQTT_USER`, `MQTT_PASSWORD` (veja `secrets.example.h`) |
++   | Backend (Render → Environment, ou `.env` do compose) | `MQTT_BROKER_URL=ssl://xxxxxxxx.ala.us-east-1.emqxsl.com:8883`, `MQTT_USUARIO`, `MQTT_SENHA` |
++   | `serial_bridge.py` (`hardware/.env`) e `camera_bridge.py` (`camera/.env`) | `MQTT_BROKER=xxxxxxxx.ala.us-east-1.emqxsl.com`, `MQTT_PORT=8883`, `MQTT_USUARIO`, `MQTT_SENHA` |
++
++   Com a porta 8883 o TLS liga sozinho no firmware e nas pontes. O firmware confere o
++   certificado do broker com as raízes de `hardware/include/ca_cert.h` (Let's Encrypt e
++   DigiCert G2/G3/G5). Se a ESP32 não conectar e o endereço estiver certo, baixe o
++   **CA Certificate** no Overview do deployment e acrescente-o nesse arquivo.
++5. Grave o firmware de novo (`pio run -e esp32dev -t upload`) e confira no monitor
++   serial: `Conectando ao MQTT ...:8883 (TLS)... conectado!`. No log do backend deve
++   aparecer `MQTT conectado em ssl://...`.
++6. Para ver as mensagens chegando, use o [MQTTX](https://mqttx.app) (cliente MQTT
++   gratuito) com o mesmo endereço, porta 8883, SSL/TLS ligado e o usuário criado, e
++   assine `railsense/#`. Feche-o depois: cada assinante conta no tráfego.
++
++Cuidados:
++
++- **Rede da escola:** ela pode bloquear a porta 8883 ou ter login por página (portal
++  cativo), que o ESP32 não consegue fazer. Se o ESP32 ficar em `estado=-2`, teste com o
++  roteador do celular. O modo USB (abaixo) também funciona com o broker na nuvem: a
++  ponte serial sai pela internet do PC.
++- **Render gratuito:** o backend hiberna após ~15 min sem requisições HTTP, e a conexão
++  MQTT não conta como uso. Enquanto ele dorme, as leituras de vibração se perdem (o
++  broker não guarda mensagens QoS 0). Deixe o painel aberto durante a demonstração ou
++  acorde o backend abrindo `https://<servico>.onrender.com/actuator/health`.
++- **Senhas fora do Git:** `secrets.h`, `hardware/.env` e `camera/.env` não devem ir
++  para o repositório.
++
+ ### ESP32 pelo cabo USB (sem Wi-Fi)
+ 
+ Quando a rede não deixa o ESP32 alcançar o broker (ex.: rede da escola), grave o
+diff --git a/render.yaml b/render.yaml
+index ee1fcec..b9bf4e9 100644
+--- a/render.yaml
++++ b/render.yaml
+@@ -31,6 +31,14 @@ services:
+       # URL do frontend no Vercel, ex.: https://railsense.vercel.app
+       - key: CORS_ALLOWED_ORIGINS
+         sync: false
++      # Broker MQTT na nuvem (EMQX Cloud), ex.: ssl://xxxxxxxx.ala.us-east-1.emqxsl.com:8883.
++      # Vazio desliga as leituras de vibração. Passo a passo em mqtt/topics.md.
++      - key: MQTT_BROKER_URL
++        sync: false
++      - key: MQTT_USUARIO
++        sync: false
++      - key: MQTT_SENHA
++        sync: false
+       - key: ADMIN_NAME
+         value: Administrador RailSense
+       - key: GEMINI_MODEL
+-- 
+2.43.0
+

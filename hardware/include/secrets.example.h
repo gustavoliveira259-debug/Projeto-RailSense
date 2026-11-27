@@ -17,12 +17,12 @@
 // IP do PC que roda o broker. Ele muda de tempos em tempos:
 // rode hardware/broker-local.ps1, que mostra o IP atual e avisa se este estiver errado.
 // Não use 192.168.56.x (VirtualBox) nem 172.x (WSL/Docker): a ESP32 não alcança.
-#define MQTT_SERVER "192.168.0.10"
+//#define MQTT_SERVER "192.168.0.10"
 // 1883 é o padrão. Use 1884 se o PC já tiver o serviço Mosquitto do Windows ocupando a 1883.
-#define MQTT_PORT 1883
+//#define MQTT_PORT 1883
 // O broker local aceita conexão sem login: deixe vazio.
-#define MQTT_USER ""
-#define MQTT_PASSWORD ""
+//#define MQTT_USER ""
+//#define MQTT_PASSWORD ""
 
 // O TLS liga sozinho com MQTT_PORT 8883. Descomente para forçar (1 = TLS, 0 = sem TLS).
 // #define MQTT_TLS 1

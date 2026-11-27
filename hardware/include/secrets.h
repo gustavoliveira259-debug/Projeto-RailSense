@@ -3,10 +3,10 @@
 
 // Rede Wi-Fi 2.4 GHz (a ESP32 não conecta em 5 GHz).
 #define WIFI_SSID "linksys"
-#define WIFI_PASSWORD ""
+#define WIFI_PASSWORD "12345678"
 
-// IP do PC que roda o broker (docker compose), na MESMA rede Wi-Fi da ESP32.
-// No Windows: ipconfig -> "Endereço IPv4" do adaptador Wi-Fi/Ethernet da rede local.
-// Não use 192.168.56.x: é o adaptador do VirtualBox, a ESP32 não alcança.
-#define MQTT_SERVER "10.110.12.43"
-#define MQTT_PORT 1883
+
+#define MQTT_SERVER "z91c6d11.ala.us-east-1.emqxsl.com"
+#define MQTT_PORT 8883
+#define MQTT_USER "admin"
+#define MQTT_PASSWORD "@@senha1234567@"
