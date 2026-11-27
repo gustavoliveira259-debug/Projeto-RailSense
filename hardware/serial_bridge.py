@@ -1,8 +1,8 @@
 """Ponte USB -> MQTT para o ESP32 gravado no modo USB (ambiente esp32dev-usb).
 
 O firmware escreve uma linha por mensagem na serial:
-    VIB {"device":"esp32-01","valor":2048}   -> railsense/sensor/vibracao
-    CAP {"device":"esp32-01","valor":3120}   -> railsense/camera/capturar
+    VIB {"device":"esp32-01","valor":2048,"rms":310,"impactos":4}   -> railsense/sensor/vibracao
+    CAP {"device":"esp32-01","valor":3120,"rms":540,"impactos":9}   -> railsense/camera/capturar
 Este script lê essas linhas e publica no broker, do mesmo jeito que o firmware
 faria pelo Wi-Fi. Outras linhas da serial são só exibidas.
 
