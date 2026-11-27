@@ -2,8 +2,8 @@
 #pragma once
 
 // Rede Wi-Fi 2.4 GHz (a ESP32 não conecta em 5 GHz).
-#define WIFI_SSID "linksys"
-#define WIFI_PASSWORD "12345678"
+#define WIFI_SSID "Redmi 10C"
+#define WIFI_PASSWORD "q6kywekk4vxnmuz"
 
 
 #define MQTT_SERVER "z91c6d11.ala.us-east-1.emqxsl.com"

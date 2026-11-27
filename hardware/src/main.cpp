@@ -7,6 +7,8 @@
 // Nos dois modos as mensagens e os tópicos são os mesmos (mqtt/topics.md).
 
 #include <Arduino.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 #ifndef RAILSENSE_USB
 #include <WiFi.h>
@@ -103,7 +105,9 @@ unsigned long ultima_tentativa_mqtt = 0;
 // Potência do rádio, da menor para a maior. Na potência máxima o pico de corrente derrubava
 // a placa pelo USB (a COM some e volta em loop logo após "Conectando ao Wi-Fi"); potência
 // baixa demais às vezes não alcança o roteador. Começa baixo e só sobe se não conectar.
-const wifi_power_t potencias_wifi[] = {WIFI_POWER_11dBm, WIFI_POWER_15dBm, WIFI_POWER_17dBm};
+// 8,5 dBm alcança um roteador na mesma sala e quase não puxa corrente; 17 dBm ficou de fora
+// porque é a faixa que derrubava a placa.
+const wifi_power_t potencias_wifi[] = {WIFI_POWER_8_5dBm, WIFI_POWER_11dBm, WIFI_POWER_15dBm};
 const unsigned long tempo_por_potencia_ms = 8000;
 
 void conectar_wifi() {
@@ -241,7 +245,17 @@ void publicar_janela() {
 }
 
 void setup() {
+  // Alimentação pelo USB: o rádio do Wi-Fi puxa picos de ~300 mA ao ligar, a tensão cai e
+  // o detector de brownout reinicia a placa em loop (a COM some e volta). Por isso:
+  //  - o detector é desligado: uma queda curta não reinicia mais a placa;
+  //  - a CPU roda a 80 MHz em vez de 240 MHz (sobra folga para amostrar a 2 kHz e para o TLS);
+  //  - espera 1 s antes do Wi-Fi para a tensão do USB se estabilizar.
+  // Se mesmo assim a COM sumir, o problema é o cabo ou a porta USB (use porta direto no PC).
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+  setCpuFrequencyMhz(80);
+
   Serial.begin(115200);
+  delay(1000);
   pinMode(PINO_LED, OUTPUT);
 #ifdef RAILSENSE_USB
   digitalWrite(PINO_LED, HIGH);
