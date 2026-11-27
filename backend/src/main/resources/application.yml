@@ -73,7 +73,8 @@ app:
     api-key: ${GEMINI_API_KEY}
     model: ${GEMINI_MODEL:gemini-3.8-flash}
   mqtt:
-    # Vazio desliga a assinatura (ex.: Render, sem broker). No compose: tcp://broker:1883.
+    # Vazio desliga a assinatura. No compose: tcp://broker:1883.
+    # Broker na nuvem (EMQX Cloud): ssl://<endereco>.emqxsl.com:8883 com MQTT_USUARIO e MQTT_SENHA.
     broker-url: ${MQTT_BROKER_URL:}
     topico-vibracao: ${MQTT_TOPICO_VIBRACAO:railsense/sensor/vibracao}
     usuario: ${MQTT_USUARIO:}

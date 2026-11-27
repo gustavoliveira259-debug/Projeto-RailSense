@@ -10,7 +10,10 @@ Configuração por variáveis de ambiente ou hardware/.env:
     SERIAL_PORT   porta do ESP32 (ex.: COM5); vazio procura sozinho
     SERIAL_BAUD   padrão 115200
     MQTT_BROKER   padrão localhost (o mesmo broker que o backend assina)
-    MQTT_PORT     padrão 1883
+    MQTT_PORT     padrão 1883; 8883 para broker na nuvem (EMQX Cloud)
+    MQTT_USUARIO  usuário do broker; vazio conecta sem login (broker local)
+    MQTT_SENHA    senha do broker
+    MQTT_TLS      1 liga o TLS; padrão: ligado só na porta 8883
 """
 
 import json
@@ -40,6 +43,9 @@ SERIAL_PORT = os.environ.get("SERIAL_PORT", "")
 SERIAL_BAUD = int(os.environ.get("SERIAL_BAUD", "115200"))
 MQTT_BROKER = os.environ.get("MQTT_BROKER", "localhost")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
+MQTT_USUARIO = os.environ.get("MQTT_USUARIO", "")
+MQTT_SENHA = os.environ.get("MQTT_SENHA", "")
+MQTT_TLS = os.environ.get("MQTT_TLS", "1" if MQTT_PORT == 8883 else "0").lower() in ("1", "true", "sim")
 
 TOPICOS = {
     "VIB": "railsense/sensor/vibracao",
@@ -77,6 +83,10 @@ def conectar_mqtt():
     cliente.on_connect = lambda c, u, f, rc, p: print(
         f"MQTT conectado em {MQTT_BROKER}:{MQTT_PORT}" if rc == 0 else f"MQTT recusou a conexão: {rc}")
     cliente.on_disconnect = lambda c, u, f, rc, p: print(f"MQTT desconectado ({rc}); reconectando")
+    if MQTT_TLS:
+        cliente.tls_set()  # confere o certificado do broker com os certificados do sistema
+    if MQTT_USUARIO:
+        cliente.username_pw_set(MQTT_USUARIO, MQTT_SENHA)
     # Assíncrono: se o broker ainda não subiu, o loop tenta de novo sozinho.
     cliente.connect_async(MQTT_BROKER, MQTT_PORT)
     cliente.loop_start()
